@@ -21,6 +21,17 @@ const arenaRight = 750;
 const worldW = 800;
 const worldH = 400;
 
+// Переменные настроек
+let soundEnabled = true;
+let gameSpeed = 1; // 1 = нормальная, 1.3 = быстрая
+
+// Находим HTML элементы
+const settingsBtn = document.getElementById('settings-btn');
+const settingsScreen = document.getElementById('settings-screen');
+const closeSettingsBtn = document.getElementById('close-settings-btn');
+const soundToggleBtn = document.getElementById('sound-toggle-btn');
+const speedToggleBtn = document.getElementById('speed-toggle-btn');
+
 let timeLeft = 99;
 let timerInterval = null;
 let isGameOver = false;
@@ -704,3 +715,36 @@ function drawPauseScreen() {
 
 startTimer();
 gameLoop();
+// Открытие настроек (ставим игру на паузу при открытии)
+settingsBtn.addEventListener('click', () => {
+    isPaused = true;
+    settingsScreen.classList.remove('hidden');
+});
+
+// Закрытие настроек
+closeSettingsBtn.addEventListener('click', () => {
+    settingsScreen.classList.add('hidden');
+    isPaused = false; // Снимаем с паузы
+});
+
+// Переключение звука
+soundToggleBtn.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    soundToggleBtn.textContent = soundEnabled ? 'ВКЛ' : 'ВЫКЛ';
+    soundToggleBtn.style.borderColor = soundEnabled ? '#ff0055' : '#777';
+});
+
+// Переключение скорости боя
+speedToggleBtn.addEventListener('click', () => {
+    if (gameSpeed === 1) {
+        gameSpeed = 1.3;
+        speedToggleBtn.textContent = '1.3x (Турбо)';
+    } else {
+        gameSpeed = 1;
+        speedToggleBtn.textContent = '1x (Норм)';
+    }
+    
+    // Применяем скорость к бойцам
+    p1.speed = 4 * gameSpeed;
+    p2.speed = 4 * gameSpeed;
+});

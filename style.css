@@ -263,3 +263,60 @@ canvas {
     cursor: pointer;
     transition: background-color 0.2s, ease; /* плавность при наведении */
 }
+/* Стили окна настроек */
+#settings-screen h2 {
+    color: #ffcc00;
+    font-size: 26px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #ffcc00;
+}
+.settings-content {
+    width: 80%;
+    max-width: 350px;
+    margin-bottom: 25px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #33384d;
+    font-size: 14px;
+}
+
+/* Переключатели внутри настроек */
+.toggle-btn {
+    padding: 6px 14px;
+    background-color: #2a2d3d;
+    border: 2px solid #ff0055;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background-color: #ff0055;
+    box-shadow: 0 0 8px rgba(255, 0, 85, 0.6);
+}
+
+.close-btn {
+    padding: 10px 20px;
+    background-color: #ff0055;
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(255, 0, 85, 0.4);
+    font-family: inherit;
+}
+
+.close-btn:hover {
+    background-color: #ff2277;
+}
+
