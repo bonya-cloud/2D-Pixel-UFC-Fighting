@@ -247,3 +247,19 @@ canvas {
     border-bottom-width: 1px;
     transform: translateY(3px);
 }
+/* Settings button */
+.settings-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    Z-index: 5;
+
+    background-color: rgba(20,22,34,0.8); /* полупрозрачный фон */
+    border: 2px solid #33384d; /* темная рамка */
+    border-radius: 6px; /* скругленные углы */
+    color: #fff;
+    font-size: 18px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: background-color 0.2s, ease; /* плавность при наведении */
+}
