@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Pixel UFC Fighting</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <div class="ui-header">
+            <div class="fighter-card p1">
+                <div class="portrait p1-portrait"></div>
+                <div class="info-col">
+                    <div class="name">DUKE — A/D/W движение, J удар, K блок</div>
+                    <div class="hp-bar-bg"><div id="p1-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+            <div class="timer" id="timer">99</div>
+            <div class="fighter-card p2">
+                <div class="portrait p2-portrait"></div>
+                <div class="info-col">
+                    <div class="name">RITA — Стрелки движение, U удар, I блок</div>
+                    <div class="hp-bar-bg"><div id="p2-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="400" height="200"></canvas>
+
+        <div id="game-over-screen" class="modal hidden">
+            <h1 id="winner-text">ИГРОК 1<br>ПОБЕДИЛ!</h1>
+            <p>Нажми Пробел или кнопку ниже для рестарта</p>
+            <button onclick="resetGame()">Заново</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
