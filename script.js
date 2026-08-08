@@ -25,11 +25,18 @@ let timeLeft = 99;
 let timerInterval = null;
 let isGameOver = false;
 let frame = 0;
+let isPaused = false; // 1. переменная паузы паузы
 
 const keys = {};
 
 window.addEventListener('keydown', (e) => {
     keys[e.code] = true;
+
+    // 2. Добавляем этот блок для переключения паузы на Escape
+    if ((e.code === 'KeyP' || e.code === 'Escape') && !isGameOver) {
+        isPaused = !isPaused;
+    }
+
     if (isGameOver && e.code === 'Space') {
         resetGame();
     }
@@ -612,16 +619,26 @@ function gameLoop() {
     }
 
     drawArena();
-    p1.update(p2);
-    p2.update(p1);
-    checkHit(p1, p2, p2HpEl);
-    checkHit(p2, p1, p1HpEl);
-    updateAndDrawSparks();
+
+    if (!isPaused) {
+        // Если игры на паузе НЕТ — бойцы двигаются и дерутся
+        p1.update(p2);
+        p2.update(p1);
+        checkHit(p1, p2, p2HpEl);
+        checkHit(p2, p1, p1HpEl);
+        updateAndDrawSparks();
+    } else {
+        // Если пауза ВКЛЮЧЕНА — просто статично рисуем бойцов
+        p1.draw();
+        p2.draw();
+        // И поверх выводим экран паузы
+        drawPauseScreen();
+    }
 
     ctx.restore();
 
     if (flash > 0) {
-        ctx.fillStyle = `rgba(255,255,255,${flash})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${flash})`;
         ctx.fillRect(0, 0, worldW, worldH);
         flash -= 0.08;
         if (flash < 0) flash = 0;
@@ -629,7 +646,6 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
 }
-
 function startTimer() {
     timerInterval = setInterval(() => {
         if (timeLeft > 0) {
@@ -653,6 +669,7 @@ function endGame(text) {
 
 function resetGame() {
     isGameOver = false;
+    let isPaused = false     
     timeLeft = 99;
     timerEl.textContent = timeLeft;
     p1.hp = 100; p2.hp = 100;
