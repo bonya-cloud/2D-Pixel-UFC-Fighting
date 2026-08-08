@@ -685,6 +685,22 @@ function resetGame() {
     clearInterval(timerInterval);
     startTimer();
 }
+function drawPauseScreen() {
+    // Полупрозрачный темный фон
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, worldW, worldH);
+
+    // Текст "ПАУЗА"
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 36px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ПАУЗА', worldW / 2, worldH / 2 - 10);
+
+    // Подсказка
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px "Courier New", monospace';
+    ctx.fillText('Нажми P или ESC, чтобы продолжить', worldW / 2, worldH / 2 + 30);
+}
 
 startTimer();
 gameLoop();
