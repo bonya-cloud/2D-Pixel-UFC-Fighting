@@ -687,19 +687,19 @@ function resetGame() {
 }
 function drawPauseScreen() {
     // Полупрозрачный темный фон
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, worldW, worldH);
 
     // Текст "ПАУЗА"
     ctx.fillStyle = '#ffcc00';
-    ctx.font = 'bold 36px "Courier New", monospace';
+    ctx.font = '900 28px sans-serif'; // жирный шрифт для слова "ПАУЗА"
     ctx.textAlign = 'center';
-    ctx.fillText('ПАУЗА', worldW / 2, worldH / 2 - 10);
+    ctx.fillText('ПАУЗА', worldW / 2, worldH / 2 - 15); // Центрируем текст по горизонтали и вертикали
 
     // Подсказка
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '14px "Courier New", monospace';
-    ctx.fillText('Нажми P или ESC, чтобы продолжить', worldW / 2, worldH / 2 + 30);
+    ctx.fillStyle = '#ffffff'; 
+    ctx.font = 'bold 18px sans-serif'; // жирный шрифт для подсказки    
+    ctx.fillText('Нажми  ESC, чтобы продолжить', worldW / 2, worldH / 2 + 25);
 }
 
 startTimer();
