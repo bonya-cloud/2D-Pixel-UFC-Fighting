@@ -8,28 +8,29 @@
 </head>
 <body>
     <div class="game-wrapper">
-        <! -- кнопка настроек в правом верхнем углу -- >
+        <!-- кнопка настроек в правом верхнем углу -->
         <button id="settings-btn" class="settings-btn" title="Настройки">⚙️</button>
+
         <!-- модальное окно настроек -->
-        <div id="settings-modal" class="modal hidden">
+        <div id="settings-screen" class="modal hidden">
             <h2>Настройки</h2>
 
             <div class="settings-content">
-        <!-- Настройка звука -->
-        <div class="setting-item">
-            <span>Звуковые эффекты:</span>
-            <button id="sound-toggle-btn" class="toggle-btn">ВКЛ</button>
-        </div>
+                <!-- Настройка звука -->
+                <div class="setting-item">
+                    <span>Звуковые эффекты:</span>
+                    <button id="sound-toggle-btn" class="toggle-btn">ВКЛ</button>
+                </div>
 
-        <! -- настройка скорости игры -- >
-        <div class="setting-item">
-            <span>Скорость боя:</span>
-            <button id="speed-toggle-btn" class="toggle-btn">1x (Норм)</button>
-        </div>
-    </div>
+                <!-- настройка скорости игры -->
+                <div class="setting-item">
+                    <span>Скорость боя:</span>
+                    <button id="speed-toggle-btn" class="toggle-btn">1x (Норм)</button>
+                </div>
+            </div>
 
-    <button id="close-settings-btn" class="close-btn">Сохранить и закрыть</button>
-</div>
+            <button id="close-settings-btn" class="close-btn">Сохранить и закрыть</button>
+        </div>
 
         <div class="ui-header">
             <div class="fighter-card p1">

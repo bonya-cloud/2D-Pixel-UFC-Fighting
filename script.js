@@ -1,11 +1,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
-// The canvas bitmap is half of the "world" size (400x200 vs 800x400).
-// CSS stretches it back up with pixelated rendering + object-fit:contain,
-// so it always fills the wrapper (which itself scales to the viewport)
-// while keeping that chunky retro pixel look. Every draw call below uses
-// world coordinates (0-800 / 0-400); we just scale the context once.
+
 ctx.scale(0.5, 0.5);
 
 const p1HpEl = document.getElementById('p1-hp');
@@ -36,16 +32,22 @@ let timeLeft = 99;
 let timerInterval = null;
 let isGameOver = false;
 let frame = 0;
-let isPaused = false; // 1. переменная паузы паузы
+let isPaused = false; // Состояние паузы
 
 const keys = {};
 
 window.addEventListener('keydown', (e) => {
     keys[e.code] = true;
 
-    // 2. Добавляем этот блок для переключения паузы на Escape
-    if ((e.code === 'KeyP' || e.code === 'Escape') && !isGameOver) {
-        isPaused = !isPaused;
+    // Переключение паузы по нажатию на ESC или P (только если настройки закрыты и игра не окончена)
+    if ((e.code === 'KeyP' || e.code === 'Escape' || e.key === 'p' || e.key === 'P' || e.key === 'з' || e.key === 'З') && !isGameOver) {
+        // Если открыты настройки — просто закрываем их
+        if (!settingsScreen.classList.contains('hidden')) {
+            settingsScreen.classList.add('hidden');
+            isPaused = false;
+        } else {
+            isPaused = !isPaused;
+        }
     }
 
     if (isGameOver && e.code === 'Space') {
@@ -60,7 +62,7 @@ window.addEventListener('keyup', (e) => {
 // ---------- juice: screen shake + hit sparks ----------
 let shake = { time: 0, magnitude: 0 };
 let sparks = [];
-let flash = 0; // white KO flash overlay opacity
+let flash = 0;
 
 function triggerShake(magnitude, duration) {
     shake.time = duration;
@@ -106,7 +108,7 @@ class Fighter {
         this.width = 40;
         this.height = 70;
         this.color = color;
-        this.accent = skinAccent; // headband/belt accent color
+        this.accent = skinAccent;
         this.vx = 0;
         this.vy = 0;
         this.speed = 4;
@@ -118,23 +120,22 @@ class Fighter {
         this.name = name;
 
         this.isAttacking = false;
-        this.attackType = 'punch'; // 'punch' | 'kick'
+        this.attackType = 'punch';
         this.isBlocking = false;
         this.attackCooldown = false;
 
-        this.hitFlash = 0; // brief white flash when this fighter takes a hit
+        this.hitFlash = 0;
         this.walkCycle = 0;
     }
 
     draw() {
-        const cx = this.x + this.width / 2; // local origin: center of shoulders
-        const topY = this.y; // top of torso
+        const cx = this.x + this.width / 2;
+        const topY = this.y;
 
         ctx.save();
         ctx.translate(cx, topY);
         if (!this.isFacingRight) ctx.scale(-1, 1);
 
-        // ground shadow (undo the mirror for the shadow so it doesn't skew)
         ctx.save();
         ctx.scale(this.isFacingRight ? 1 : -1, 1);
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -151,27 +152,24 @@ class Fighter {
         const skin = '#e8b48a';
         const skinDark = '#c68f66';
         const isKicking = this.isAttacking && this.attackType === 'kick';
-        const kickReach = 40; // how far the kicking leg extends, in local px
+        const kickReach = 40;
 
-        // back leg
         ctx.fillStyle = '#1c1c22';
         ctx.fillRect(-11, 46, 9, 22);
         ctx.fillStyle = '#0d0d10';
         ctx.fillRect(-12, 66, 11, 4);
 
-        // back arm (behind torso)
         ctx.fillStyle = darkBody;
         ctx.fillRect(-17, 10, 8, 20);
         ctx.fillStyle = skinDark;
         ctx.fillRect(-18, 28, 9, 9);
 
-        // front leg: normal stance, or extended kick
         if (isKicking) {
             ctx.fillStyle = '#26262e';
-            ctx.fillRect(2, 32, 11, 9); // raised thigh
-            ctx.fillRect(11, 28, kickReach - 12, 8); // extended shin
+            ctx.fillRect(2, 32, 11, 9);
+            ctx.fillRect(11, 28, kickReach - 12, 8);
             ctx.fillStyle = '#0d0d10';
-            ctx.fillRect(11 + kickReach - 16, 25, 14, 12); // foot
+            ctx.fillRect(11 + kickReach - 16, 25, 14, 12);
         } else {
             ctx.fillStyle = '#26262e';
             ctx.fillRect(2, 46, 10, 22);
@@ -179,12 +177,11 @@ class Fighter {
             ctx.fillRect(1, 66, 11, 4);
         }
 
-        // torso / gi
         ctx.fillStyle = bodyColor;
         ctx.fillRect(-14, 0, 28, 38);
         ctx.fillStyle = darkBody;
         ctx.fillRect(6, 0, 8, 38);
-        // V-neck collar
+
         ctx.fillStyle = '#f2f2f2';
         ctx.beginPath();
         ctx.moveTo(-5, 0);
@@ -193,45 +190,37 @@ class Fighter {
         ctx.closePath();
         ctx.fill();
 
-        // belt
         ctx.fillStyle = this.accent;
         ctx.fillRect(-14, 34, 28, 8);
         ctx.fillStyle = shade(this.accent, -40);
         ctx.fillRect(-4, 34, 8, 8);
 
-        // shorts trim under belt
         ctx.fillStyle = '#111';
         ctx.fillRect(-13, 40, 26, 8);
 
-        // head
         ctx.fillStyle = skin;
         ctx.fillRect(-10, -20, 20, 20);
         ctx.fillStyle = skinDark;
         ctx.fillRect(2, -20, 8, 20);
 
-        // headband
         ctx.fillStyle = this.accent;
         ctx.fillRect(-11, -21, 22, 6);
         ctx.fillRect(-20, -18, 9, 4);
         ctx.fillRect(-24, -15, 7, 3);
 
-        // hair spikes
         ctx.fillStyle = '#1a1310';
         ctx.fillRect(-9, -24, 5, 5);
         ctx.fillRect(-1, -25, 5, 6);
         ctx.fillRect(6, -23, 5, 5);
 
-        // eye
         ctx.fillStyle = '#101010';
         ctx.fillRect(4, -12, 3, 3);
 
-        // front arm (pulled back slightly while kicking for balance)
         ctx.fillStyle = bodyColor;
         ctx.fillRect(isKicking ? 6 : 9, isKicking ? 8 : 10, 9, 18);
         ctx.fillStyle = '#d92b2b';
         ctx.fillRect(isKicking ? 6 : 9, isKicking ? 24 : 26, 10, 10);
 
-        // punch
         if (this.isAttacking && this.attackType === 'punch') {
             ctx.fillStyle = skin;
             ctx.fillRect(this.width / 2 - 2, 14, 27, 10);
@@ -239,7 +228,6 @@ class Fighter {
             ctx.fillRect(this.width / 2 - 2 + 19, 11, 14, 16);
         }
 
-        // hit flash overlay
         if (this.hitFlash > 0) {
             ctx.globalCompositeOperation = 'source-atop';
             ctx.fillStyle = `rgba(255,255,255,${Math.min(this.hitFlash / 6, 0.85)})`;
@@ -412,11 +400,9 @@ const crowd = Array.from({ length: 18 }, (_, i) => ({
 
 function drawArena() {
     const t = frame / 60;
-    // subtle parallax based on the average fighter position
     const avgX = (p1.x + p2.x) / 2;
     const parallax = (avgX - (arenaLeft + arenaRight) / 2) * 0.04;
 
-    // dusk sky
     const sky = ctx.createLinearGradient(0, 0, 0, floorY - 100);
     sky.addColorStop(0, '#2b1039');
     sky.addColorStop(0.6, '#4a1c3d');
@@ -424,14 +410,12 @@ function drawArena() {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, worldW, floorY - 100);
 
-    // twinkling stars
     stars.forEach(s => {
         const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.5 + s.phase));
         ctx.fillStyle = `rgba(255,255,255,${tw})`;
         ctx.fillRect(s.x, s.y, s.r, s.r);
     });
 
-    // moon
     ctx.fillStyle = '#fff3cc';
     ctx.beginPath();
     ctx.arc(680, 55, 22, 0, Math.PI * 2);
@@ -442,7 +426,6 @@ function drawArena() {
     ctx.arc(688, 62, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // drifting clouds
     ctx.fillStyle = 'rgba(20, 8, 28, 0.55)';
     clouds.forEach(c => {
         c.x += c.speed;
@@ -453,7 +436,6 @@ function drawArena() {
         ctx.fill();
     });
 
-    // distant mountains (parallax layer 1)
     ctx.save();
     ctx.translate(-parallax * 0.5, 0);
     ctx.fillStyle = '#1c0e2e';
@@ -472,12 +454,10 @@ function drawArena() {
     ctx.fill();
     ctx.restore();
 
-    // pagoda roof silhouette (back wall of the dojo), parallax layer 2
     ctx.save();
     ctx.translate(-parallax, 0);
     const roofY = floorY - 100;
 
-    // hanging flag rope above the roof
     ctx.strokeStyle = '#4a2a2a';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -507,7 +487,6 @@ function drawArena() {
     ctx.fillStyle = '#2a0d0d';
     ctx.fillRect(worldW / 2 - 6, roofY - 60, 12, 18);
 
-    // paper lanterns swaying from the roof edge
     const lanternXs = [140, 260, 540, 660];
     lanternXs.forEach((lx, i) => {
         const sway = Math.sin(t * 1.3 + i) * 3;
@@ -529,7 +508,6 @@ function drawArena() {
         ctx.fillRect(lx + sway - 1, roofY + 15, 2, 14);
     });
 
-    // wall panels with a simple wood-grain texture
     ctx.fillStyle = '#3d1f2e';
     for (let x = arenaLeft; x < arenaRight; x += 60) {
         ctx.fillRect(x + 4, roofY, 52, 100);
@@ -544,7 +522,6 @@ function drawArena() {
         }
     }
 
-    // crowd of spectator silhouettes behind the low fence
     ctx.fillStyle = 'rgba(10,6,14,0.85)';
     crowd.forEach((p, i) => {
         const bob = Math.sin(t * 2 + p.bob) * 2;
@@ -553,11 +530,10 @@ function drawArena() {
         ctx.fill();
         ctx.fillRect(p.x - parallax * 0.5 - 4, roofY + 95 + bob, 8, p.h);
     });
-    // fence in front of the crowd
+
     ctx.fillStyle = '#241018';
     ctx.fillRect(arenaLeft, roofY + 96, arenaRight - arenaLeft, 6);
 
-    // support pillars
     ctx.fillStyle = '#5a1f1f';
     ctx.fillRect(arenaLeft, roofY - 4, 18, 104);
     ctx.fillRect(arenaRight - 18, roofY - 4, 18, 104);
@@ -566,14 +542,12 @@ function drawArena() {
     ctx.fillRect(arenaRight - 18, roofY - 4, 6, 104);
     ctx.restore();
 
-    // ground mist near the back edge
     const mist = ctx.createLinearGradient(0, floorY - 20, 0, floorY);
     mist.addColorStop(0, 'rgba(180,170,220,0)');
     mist.addColorStop(1, 'rgba(180,170,220,0.12)');
     ctx.fillStyle = mist;
     ctx.fillRect(arenaLeft, floorY - 20, arenaRight - arenaLeft, 20);
 
-    // floor (tatami)
     ctx.fillStyle = '#3a2a1e';
     ctx.fillRect(arenaLeft, floorY, arenaRight - arenaLeft, 80);
     ctx.strokeStyle = '#2a1d14';
@@ -590,13 +564,12 @@ function drawArena() {
         ctx.lineTo(arenaRight, y);
         ctx.stroke();
     }
-    // subtle plank shading alternation
+
     ctx.fillStyle = 'rgba(0,0,0,0.08)';
     for (let x = arenaLeft, i = 0; x < arenaRight; x += 40, i++) {
         if (i % 2 === 0) ctx.fillRect(x, floorY, 40, 80);
     }
 
-    // floor edge highlight
     ctx.strokeStyle = '#ff0055';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -604,7 +577,6 @@ function drawArena() {
     ctx.lineTo(arenaRight, floorY);
     ctx.stroke();
 
-    // corner posts (player color markers) with small rocks/plants for foreground depth
     ctx.fillStyle = '#3366ff';
     ctx.fillRect(arenaLeft, floorY, 6, 80);
     ctx.fillStyle = '#ff3333';
@@ -632,18 +604,19 @@ function gameLoop() {
     drawArena();
 
     if (!isPaused) {
-        // Если игры на паузе НЕТ — бойцы двигаются и дерутся
         p1.update(p2);
         p2.update(p1);
         checkHit(p1, p2, p2HpEl);
         checkHit(p2, p1, p1HpEl);
         updateAndDrawSparks();
     } else {
-        // Если пауза ВКЛЮЧЕНА — просто статично рисуем бойцов
         p1.draw();
         p2.draw();
-        // И поверх выводим экран паузы
-        drawPauseScreen();
+        
+        // Показываем надпись "ПАУЗА" только если меню настроек закрыто
+        if (settingsScreen.classList.contains('hidden')) {
+            drawPauseScreen();
+        }
     }
 
     ctx.restore();
@@ -657,12 +630,13 @@ function gameLoop() {
 
     requestAnimationFrame(gameLoop);
 }
+
 function startTimer() {
     timerInterval = setInterval(() => {
-        if (timeLeft > 0) {
+        if (timeLeft > 0 && !isPaused && !isGameOver) {
             timeLeft--;
             timerEl.textContent = timeLeft;
-        } else {
+        } else if (timeLeft <= 0) {
             clearInterval(timerInterval);
             if (p1.hp > p2.hp) endGame('ИГРОК 1<br>ПОБЕДИЛ ПО ОЧКАМ!');
             else if (p2.hp > p1.hp) endGame('ИГРОК 2<br>ПОБЕДИЛ ПО ОЧКАМ!');
@@ -680,7 +654,7 @@ function endGame(text) {
 
 function resetGame() {
     isGameOver = false;
-    let isPaused = false     
+    isPaused = false;
     timeLeft = 99;
     timerEl.textContent = timeLeft;
     p1.hp = 100; p2.hp = 100;
@@ -693,38 +667,34 @@ function resetGame() {
     shake = { time: 0, magnitude: 0 };
     flash = 0;
     gameOverScreen.classList.add('hidden');
+    settingsScreen.classList.add('hidden');
     clearInterval(timerInterval);
     startTimer();
 }
+
 function drawPauseScreen() {
-    // Полупрозрачный темный фон
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, worldW, worldH);
 
-    // Текст "ПАУЗА"
     ctx.fillStyle = '#ffcc00';
-    ctx.font = '900 28px sans-serif'; // жирный шрифт для слова "ПАУЗА"
+    ctx.font = '900 28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ПАУЗА', worldW / 2, worldH / 2 - 15); // Центрируем текст по горизонтали и вертикали
+    ctx.fillText('ПАУЗА', worldW / 2, worldH / 2 - 15);
 
-    // Подсказка
     ctx.fillStyle = '#ffffff'; 
-    ctx.font = 'bold 18px sans-serif'; // жирный шрифт для подсказки    
-    ctx.fillText('Нажми  ESC, чтобы продолжить', worldW / 2, worldH / 2 + 25);
+    ctx.font = 'bold 18px sans-serif';  
+    ctx.fillText('Нажми ESC или P, чтобы продолжить', worldW / 2, worldH / 2 + 25);
 }
 
-startTimer();
-gameLoop();
-// Открытие настроек (ставим игру на паузу при открытии)
+// Открытие и закрытие настроек
 settingsBtn.addEventListener('click', () => {
     isPaused = true;
     settingsScreen.classList.remove('hidden');
 });
 
-// Закрытие настроек
 closeSettingsBtn.addEventListener('click', () => {
     settingsScreen.classList.add('hidden');
-    isPaused = false; // Снимаем с паузы
+    isPaused = false;
 });
 
 // Переключение звука
@@ -744,7 +714,9 @@ speedToggleBtn.addEventListener('click', () => {
         speedToggleBtn.textContent = '1x (Норм)';
     }
     
-    // Применяем скорость к бойцам
     p1.speed = 4 * gameSpeed;
     p2.speed = 4 * gameSpeed;
 });
+
+startTimer();
+gameLoop();
