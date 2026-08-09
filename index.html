@@ -21,30 +21,34 @@
                     <span>Звуковые эффекты:</span>
                     <button id="sound-toggle-btn" class="toggle-btn">ВКЛ</button>
                 </div>
-                <! --- переключатель подсказок (вкл/выкл) -- >
-            </div class = "settings-items">
-                <span>Подсказки:</span>
-                <button id="hints-toggle-btn" class="toggle-btn">ВКЛ</button>
-            </div>
 
-                <!-- настройка скорости игры -->
+                <!-- Настройка подсказок -->
+                <div class="setting-item">
+                    <span>Подсказки:</span>
+                    <button id="hints-toggle-btn" class="toggle-btn">ВКЛ</button>
+                </div>
+
+                <!-- Настройка скорости игры -->
                 <div class="setting-item">
                     <span>Скорость боя:</span>
                     <button id="speed-toggle-btn" class="toggle-btn">1x (Норм)</button>
                 </div>
 
-                <!-- формат матча: один раунд или до 2 побед из 3 -->
+                <!-- Формат матча -->
                 <div class="setting-item">
                     <span>Раунды:</span>
                     <button id="rounds-toggle-btn" class="toggle-btn">1 раунд</button>
                 </div>
-                <div id="controls-hints" style="font-size: 11px; color: #aaa; text-align: center; margin: 10px 0;">
-                    P1: A/D/W, J/L/K/S | P2: Стрелки, U/O/I/↓
-                </div>
-                <!-- НОВОЕ: игрок 2 может быть человеком или компьютером (ботом) -->
+
+                <!-- Настройка Игрок 2 / CPU -->
                 <div class="setting-item">
                     <span>Игрок 2:</span>
                     <button id="cpu-toggle-btn" class="toggle-btn">Человек</button>
+                </div>
+
+                <!-- Текст подсказок клавиш -->
+                <div id="controls-hints" style="font-size: 11px; color: #aaa; text-align: center; margin: 15px 0 5px 0;">
+                    P1: A/D/W, J/L/K/S | P2: Стрелки, U/O/I/↓
                 </div>
             </div>
 
@@ -57,15 +61,12 @@
                 <div class="info-col">
                     <div class="name" id="p1-name">DUKE — A/D/W движение (2× = рывок), J удар, L пинок, K блок, S ульт</div>
                     <div class="hp-bar-bg"><div id="p1-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
-                    <!-- НОВОЕ: полоска ультимейта. Копится за удары, при 100% можно жать S -->
                     <div class="ult-bar-bg"><div id="p1-ult" class="ult-bar-fill" style="width: 0%;"></div></div>
-                    <!-- НОВОЕ: полоска стамины. Тратится на рывок (двойной тап A/D) -->
                     <div class="stamina-bar-bg"><div id="p1-stamina" class="stamina-bar-fill" style="width: 100%;"></div></div>
                 </div>
             </div>
             <div class="timer-col">
                 <div class="timer" id="timer">99</div>
-                <!-- сюда скриптом подставляется "РАУНД 2/3 • СЧЁТ 1:0", если выбран режим с несколькими раундами -->
                 <div class="round-indicator" id="round-indicator"></div>
             </div>
             <div class="fighter-card p2">
@@ -73,21 +74,18 @@
                 <div class="info-col">
                     <div class="name" id="p2-name">RITA — Стрелки движение (2× = рывок), U удар, O пинок, I блок, ↓ ульт</div>
                     <div class="hp-bar-bg"><div id="p2-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
-                    <!-- НОВОЕ: полоска ультимейта у второго игрока -->
                     <div class="ult-bar-bg"><div id="p2-ult" class="ult-bar-fill" style="width: 0%;"></div></div>
-                    <!-- НОВОЕ: полоска стамины у второго игрока -->
                     <div class="stamina-bar-bg"><div id="p2-stamina" class="stamina-bar-fill" style="width: 100%;"></div></div>
                 </div>
             </div>
         </div>
 
         <div class="canvas-wrap">
-            <canvas id="gameCanvas" width="400" height="200"></canvas>
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
 
             <div id="game-over-screen" class="modal hidden">
                 <h1 id="winner-text">ИГРОК 1<br>ПОБЕДИЛ!</h1>
                 <p>Нажми Пробел или кнопку ниже, чтобы продолжить</p>
-                <!-- текст кнопки и её действие (следующий раунд / полный рестарт матча) задаются в script.js -->
                 <button id="continue-btn">Заново</button>
             </div>
         </div>
