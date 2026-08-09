@@ -412,3 +412,17 @@ canvas {
 .stamina-bar-fill.ready {
     box-shadow: 0 0 6px rgba(124, 255, 77, 0.7);
 }
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    color: #fff;
+    font-family: sans-serif;
+}
+
+.setting-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
