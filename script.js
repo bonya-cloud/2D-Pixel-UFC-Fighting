@@ -410,17 +410,17 @@ class Fighter {
             ctx.fillStyle = '#e63946';
             ctx.fillRect(this.width / 2 - 2 + 19, 11, 14, 16);
         }
-        
+
         // ===== ТРАВМЫ И СИНЯКИ =====
         if (this.hp < 75) {
             ctx.fillStyle = '#a81b1b'; // ссадина на щеке
-            ctx.fillRect(3, -16, 2, 2);
+            ctx.fillRect(3, -16, 4, 3);
         }
 
         if (this.hp < 50) {
             ctx.fillStyle = '#4a2e56'; // синяк под глазом
             ctx.fillRect(3, -11, 4, 3);
-            ctx.fillRect(-6, 12, 5, 4); // синяк на ребрах
+            ctx.fillRect(-6, 12, 5, 6); // синяк на ребрах
         }
 
         if (this.hp < 30) {
