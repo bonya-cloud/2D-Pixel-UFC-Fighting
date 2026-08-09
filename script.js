@@ -39,46 +39,16 @@ const roundsToggleBtn = document.getElementById('rounds-toggle-btn');
 const roundIndicatorEl = document.getElementById('round-indicator');
 const continueBtn = document.getElementById('continue-btn');
 
-// ===== НОВОЕ: элементы шкалы ультимейта и переключатель "Игрок 2 / CPU" =====
-const p1UltEl = document.getElementById('p1-ult');
-const p2UltEl = document.getElementById('p2-ult');
-// НОВОЕ: элементы полоски стамины (для рывка)
-const p1StaminaEl = document.getElementById('p1-stamina');
-const p2StaminaEl = document.getElementById('p2-stamina');
-const cpuToggleBtn = document.getElementById('cpu-toggle-btn');
-const p2NameEl = document.getElementById('p2-name');
-const baseP2Name = p2NameEl.textContent; // запоминаем исходный текст, чтобы дописывать "(CPU)"
-
 let timeLeft = 99;
 let timerInterval = null;
 let isGameOver = false;
 let frame = 0;
 let isPaused = false; // Состояние паузы
 
-// ===== НОВОЕ: игра против компьютера =====
-// Если true — вторым бойцом (RITA) управляет простой ИИ, а не человек за клавиатурой.
-let cpuEnabled = false;
-
-// ===== НОВОЕ: "hit-stop" — короткая заморозка кадра в момент сильного удара.
-// Приём из классических файтингов: на пару кадров всё замирает, чтобы удар
-// ощущался "весомее". hitStopFrames — сколько кадров заморозки осталось.
-let hitStopFrames = 0;
-
 const keys = {};
 
 window.addEventListener('keydown', (e) => {
-    // НОВОЕ: браузер повторяет keydown, пока клавиша зажата (авто-повтор).
-    // Нам для рывка важно поймать именно МОМЕНТ первого нажатия, поэтому
-    // проверяем это ДО того, как обновим keys[e.code].
-    const isFreshPress = !keys[e.code];
     keys[e.code] = true;
-
-    // НОВОЕ: если это свежее нажатие влево/вправо — проверяем, не двойное ли оно
-    // (двойной тап по направлению = рывок). Проверяем сразу за обоих бойцов.
-    if (isFreshPress) {
-        tryDash(p1, e.code);
-        tryDash(p2, e.code);
-    }
 
     // Переключение паузы по нажатию на ESC или P (только если настройки закрыты и игра не окончена)
     if ((e.code === 'KeyP' || e.code === 'Escape' || e.key === 'p' || e.key === 'P' || e.key === 'з' || e.key === 'З') && !isGameOver) {
@@ -186,56 +156,33 @@ function updateAndDrawSparks() {
     ctx.restore();
 }
 
-// ---------- juice: всплывающий текст (комбо, урон, "CRITICAL!", "MISS!") ----------
+// ---------- juice: всплывающий текст комбо ("3 HITS!") ----------
 let floatingTexts = [];
 
-// ===== НОВОЕ: общая функция для любого всплывающего текста. spawnComboText и
-// spawnDamageNumber ниже — просто удобные обёртки над ней с готовыми стилями. =====
-function spawnFloatingText(x, y, text, color, size, life) {
+function spawnComboText(x, y, combo) {
     floatingTexts.push({
         x, y,
-        vy: -1.2,           // текст медленно всплывает вверх
-        life: life || 45,
-        maxLife: life || 45,
-        text,
-        color: color || '#ffcc00',
-        size: size || 16
+        vy: -1.2,       // текст медленно всплывает вверх
+        life: 45,
+        maxLife: 45,
+        text: `${combo} HITS!`
     });
-}
-
-function spawnComboText(x, y, combo) {
-    spawnFloatingText(x, y, `${combo} HITS!`, '#ffcc00', 16, 45);
-}
-
-// ===== НОВОЕ: цифра урона над головой бойца + отдельная надпись "CRITICAL!"
-// для тяжёлых ударов (пинок/ультимейт). muted — приглушённый вариант для чип-урона
-// сквозь блок (серый и помельче, чтобы не отвлекал от основного действия). =====
-function spawnDamageNumber(x, y, amount, isCritical, muted) {
-    const jitterX = (Math.random() - 0.5) * 14; // лёгкий разброс, чтобы цифры не сливались
-    if (muted) {
-        spawnFloatingText(x + jitterX, y - 6, `-${amount}`, '#9aa0ad', 13, 30);
-        return;
-    }
-    spawnFloatingText(x + jitterX, y - 6, `-${amount}`, isCritical ? '#ff2255' : '#ffffff', isCritical ? 20 : 15, 40);
-    if (isCritical) {
-        spawnFloatingText(x + jitterX, y - 28, 'CRITICAL!', '#ffcc00', 15, 50);
-    }
 }
 
 function updateAndDrawFloatingTexts() {
     ctx.save();
+    ctx.font = '900 16px sans-serif';
     ctx.textAlign = 'center';
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
         const f = floatingTexts[i];
         f.y += f.vy;
         f.life--;
         if (f.life <= 0) { floatingTexts.splice(i, 1); continue; }
-        ctx.font = `900 ${f.size}px sans-serif`; // НОВОЕ: у каждого текста свой размер
         ctx.globalAlpha = Math.max(f.life / f.maxLife, 0);
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#000';
         ctx.strokeText(f.text, f.x, f.y);
-        ctx.fillStyle = f.color; // НОВОЕ: у каждого текста свой цвет
+        ctx.fillStyle = '#ffcc00';
         ctx.fillText(f.text, f.x, f.y);
     }
     ctx.restore();
@@ -271,23 +218,6 @@ class Fighter {
         // Комбо: сколько ударов подряд боец нанёс без промаха/блока противника
         this.comboCount = 0;
         this.lastHitFrame = -999; // на каком кадре был последний удачный удар
-
-        // ===== НОВОЕ: шкала ультимейта (спец-удара) =====
-        // Копится, когда боец бьёт противника (и немного — когда сам получает урон).
-        // При 100 можно один раз нанести мощный, почти неблокируемый удар.
-        this.ultCharge = 0;   // от 0 до 100
-        this.ultReady = false; // true, когда ultCharge достиг 100
-
-        // ===== НОВОЕ: стамина и рывок (dash) =====
-        this.stamina = 100;
-        this.maxStamina = 100;
-        this.isDashing = false;     // true — прямо сейчас летим в рывке
-        this.dashCooldown = false;  // true — рывок недавно был, ждём перезарядку
-        this.dashDir = 1;           // направление текущего рывка (1 = вправо, -1 = влево)
-        this.invulnerable = false;  // НОВОЕ: во время рывка боец на миг неуязвим (уворот)
-        // Время последнего нажатия влево/вправо — нужно, чтобы отличить двойное
-        // нажатие (рывок) от обычной ходьбы
-        this.lastTapTime = { left: 0, right: 0 };
     }
 
     draw() {
@@ -306,8 +236,14 @@ class Fighter {
         ctx.fill();
         ctx.restore();
 
+        // Пошатывание при тяжело раненном состоянии (< 20% HP)
+        let criticalStagger = 0;
+        if (this.hp < 20 && this.isGrounded && !this.isAttacking) {
+            criticalStagger = Math.sin(frame * 0.25) * 1.2;
+        }
+
         const bob = this.isGrounded && (this.vx !== 0) ? Math.sin(this.walkCycle) * 1.5 : 0;
-        ctx.translate(0, bob);
+        ctx.translate(criticalStagger, bob);
 
         const bodyColor = this.isBlocking ? '#555a66' : this.color;
         const darkBody = this.isBlocking ? '#33363d' : shade(this.color, -35);
@@ -315,24 +251,6 @@ class Fighter {
         const skinDark = '#c68f66';
         const isKicking = this.isAttacking && this.attackType === 'kick';
         const kickReach = 40;
-
-        // ===== НОВОЕ: лёгкое "дыхание" в простое — тело чуть сжимается/расширяется,
-        // чтобы боец не выглядел статуей, когда стоит на месте =====
-        const idleBreath = (this.isGrounded && this.vx === 0 && !this.isAttacking)
-            ? Math.sin(frame * 0.06) * 0.6 : 0;
-        ctx.translate(0, -idleBreath);
-
-        // ===== НОВОЕ: шлейф-афтеримейдж во время рывка — несколько полупрозрачных
-        // силуэтов позади бойца, создающих ощущение скорости =====
-        if (this.isDashing) {
-            ctx.save();
-            ctx.globalAlpha = 0.25;
-            ctx.fillStyle = this.accent;
-            for (let i = 1; i <= 3; i++) {
-                ctx.fillRect(-this.dashDir * i * 10 - 12, 0, 24, 38);
-            }
-            ctx.restore();
-        }
 
         ctx.fillStyle = '#1c1c22';
         ctx.fillRect(-11, 46, 9, 22);
@@ -393,11 +311,8 @@ class Fighter {
         ctx.fillRect(-1, -25, 5, 6);
         ctx.fillRect(6, -23, 5, 5);
 
-        // НОВОЕ: глаз обычно тёмный, но когда ульт заряжен — светится цветом акцента
-        ctx.fillStyle = this.ultReady ? this.accent : '#101010';
-        if (this.ultReady) { ctx.shadowColor = this.accent; ctx.shadowBlur = 6; }
+        ctx.fillStyle = '#101010';
         ctx.fillRect(4, -12, 3, 3);
-        ctx.shadowBlur = 0;
 
         ctx.fillStyle = bodyColor;
         ctx.fillRect(isKicking ? 6 : 9, isKicking ? 8 : 10, 9, 18);
@@ -418,36 +333,21 @@ class Fighter {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // ===== НОВОЕ: если ультимейт заряжен — обводим бойца пульсирующей аурой
-        // цвета его акцента. Это подсказка игроку "жми ульт-клавишу прямо сейчас!" =====
-        if (this.ultReady) {
-            ctx.save();
-            ctx.globalAlpha = 0.45 + Math.sin(frame * 0.25) * 0.25;
-            ctx.strokeStyle = this.accent;
-            ctx.lineWidth = 3;
-            ctx.shadowColor = this.accent;
-            ctx.shadowBlur = 10;
-            ctx.strokeRect(-22, -32, 62, 100);
-            ctx.restore();
+        // визуальные травмы и синяки //
+        if (this.hp < 75) {
+            ctx.fillStyle = '#a81b1b'; // ссадина на щеке
+            ctx.fillRect(3, -16, 2, 2);
         }
-
-        // ===== НОВОЕ: яркая вспышка-разряд во время самого удара-ультимейта =====
-        if (this.isAttacking && this.attackType === 'ultimate') {
-            const dir = this.isFacingRight ? 1 : -1;
-            ctx.save();
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = this.accent;
-            ctx.beginPath();
-            // расширяющийся "клин" энергии перед бойцом
-            ctx.moveTo(this.width / 2, 6);
-            ctx.lineTo(this.width / 2 + dir * 70, 20);
-            ctx.lineTo(this.width / 2 + dir * 70, 32);
-            ctx.lineTo(this.width / 2, 40);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
+        if (this.hp < 50) {
+            ctx.fillStyle = '#4a2e56'; // синяк под глазом
+            ctx.fillRect(-6, 12, 5, 4);
         }
-
+        if (this.hp < 30) {
+            ctx.fillStyle = '#780e0e'; // рассечение над броью
+            ctx.fillRect(-4, -18, 3, 2);
+            ctx.fillRect(-2, 20, 6, 3);
+        }  
+        
         ctx.restore();
 
         if (this.hitFlash > 0) this.hitFlash--;
@@ -459,11 +359,7 @@ class Fighter {
         this.isFacingRight = this.x < enemy.x;
         this.isBlocking = keys[this.controls.block] || false;
 
-        // ===== НОВОЕ: пока идёт рывок — движение целиком определяется рывком,
-        // обычные клавиши движения/блока/удара в этот момент игнорируются =====
-        if (this.isDashing) {
-            this.vx = this.dashDir * this.speed * 3.4;
-        } else if (!this.isBlocking && !this.isAttacking) {
+        if (!this.isBlocking && !this.isAttacking) {
             if (keys[this.controls.left]) this.vx = -this.speed;
             else if (keys[this.controls.right]) this.vx = this.speed;
             else this.vx = 0;
@@ -478,16 +374,10 @@ class Fighter {
 
         if (this.vx !== 0) this.walkCycle += 0.35;
 
-        if (!this.isDashing && !this.isBlocking && !this.attackCooldown) {
-            // НОВОЕ: ультимейт имеет приоритет над обычными ударами, но сработает,
-            // только если шкала заряжена (this.ultReady) — иначе клавиша просто игнорируется.
-            if (this.ultReady && keys[this.controls.ult]) this.attack('ultimate');
-            else if (keys[this.controls.kick]) this.attack('kick');
+        if (!this.isBlocking && !this.attackCooldown) {
+            if (keys[this.controls.kick]) this.attack('kick');
             else if (keys[this.controls.punch]) this.attack('punch');
         }
-
-        // НОВОЕ: стамина медленно восстанавливается сама, пока боец не в рывке
-        if (!this.isDashing) this.stamina = Math.min(this.maxStamina, this.stamina + 0.22);
 
         this.vy += gravity;
         this.x += this.vx;
@@ -510,30 +400,18 @@ class Fighter {
         this.attackType = type;
         this.attackCooldown = true;
 
-        // НОВОЕ: у ультимейта своя, более долгая тайминг-пара — удар "весомее"
-        // и после него боец на секунду беззащитен (риск за мощь — как и должно быть).
-        let activeTime, cooldownTime;
-        if (type === 'ultimate') { activeTime = 260; cooldownTime = 900; }
-        else if (type === 'kick') { activeTime = 180; cooldownTime = 550; }
-        else { activeTime = 150; cooldownTime = 400; }
+        const activeTime = type === 'kick' ? 180 : 150;
+        const cooldownTime = type === 'kick' ? 550 : 400;
 
         setTimeout(() => { this.isAttacking = false; }, activeTime);
         setTimeout(() => { this.attackCooldown = false; }, cooldownTime);
-
-        // Как только ультимейт запущен — тратим всю шкалу и убираем ауру готовности.
-        if (type === 'ultimate') {
-            this.ultCharge = 0;
-            this.ultReady = false;
-        }
     }
 
     getAttackBox() {
         const isKick = this.attackType === 'kick';
-        const isUlt = this.attackType === 'ultimate';
-        // НОВОЕ: у ультимейта самая большая зона поражения — длинный разряд энергии
-        const width = isUlt ? 90 : (isKick ? 62 : 45);
-        const height = isUlt ? 34 : (isKick ? 20 : 25);
-        const yOffset = isUlt ? 6 : (isKick ? 27 : 15);
+        const width = isKick ? 62 : 45;
+        const height = isKick ? 20 : 25;
+        const yOffset = isKick ? 27 : 15;
         return {
             x: this.isFacingRight ? this.x + this.width : this.x - width,
             y: this.y + yOffset,
@@ -557,52 +435,15 @@ function shade(hex, amt) {
 
 let p1 = new Fighter({
     x: 200, y: 200, color: '#3366ff', skinAccent: '#ffcc00', isFacingRight: true,
-    // НОВОЕ: ult: 'KeyS' — клавиша ультимейта для игрока 1
-    controls: { left: 'KeyA', right: 'KeyD', jump: 'KeyW', punch: 'KeyJ', kick: 'KeyL', block: 'KeyK', ult: 'KeyS' },
+    controls: { left: 'KeyA', right: 'KeyD', jump: 'KeyW', punch: 'KeyJ', kick: 'KeyL', block: 'KeyK' },
     name: 'DUKE'
 });
 
 let p2 = new Fighter({
     x: 560, y: 200, color: '#ff3333', skinAccent: '#33ffee', isFacingRight: false,
-    // НОВОЕ: ult: 'ArrowDown' — клавиша ультимейта для игрока 2
-    controls: { left: 'ArrowLeft', right: 'ArrowRight', jump: 'ArrowUp', punch: 'KeyU', kick: 'KeyO', block: 'KeyI', ult: 'ArrowDown' },
+    controls: { left: 'ArrowLeft', right: 'ArrowRight', jump: 'ArrowUp', punch: 'KeyU', kick: 'KeyO', block: 'KeyI' },
     name: 'RITA'
 });
-
-// ===== НОВОЕ: простой ИИ для второго бойца (режим "против компьютера") =====
-// Каждый кадр эта функция сама "нажимает" нужные клавиши в объекте keys{},
-// как будто за RITA играет человек. Настоящий игрок при этом ничего не замечает —
-// Fighter.update() как обычно читает keys[], не зная, кто их выставил.
-function aiControlP2(cpu, player) {
-    // Сначала отпускаем все клавиши бота, чтобы не залипали от прошлого кадра
-    for (const key of Object.values(cpu.controls)) keys[key] = false;
-
-    const dx = player.x - cpu.x;          // расстояние по X до игрока (со знаком)
-    const distance = Math.abs(dx);
-    const attackRange = 95;               // с какой дистанции бот пытается атаковать
-
-    // Если игрок сейчас бьёт и находится близко — с шансом 60% блокируем
-    if (player.isAttacking && distance < 110 && Math.random() < 0.6) {
-        keys[cpu.controls.block] = true;
-        return;
-    }
-
-    if (distance > attackRange) {
-        // Двигаемся навстречу игроку
-        keys[dx > 0 ? cpu.controls.right : cpu.controls.left] = true;
-        // Изредка прыгаем, чтобы бот не выглядел совсем механическим
-        if (Math.random() < 0.004) keys[cpu.controls.jump] = true;
-    } else if (!cpu.attackCooldown) {
-        // В радиусе удара и удар не на кулдауне — выбираем, чем атаковать
-        if (cpu.ultReady && Math.random() < 0.35) {
-            keys[cpu.controls.ult] = true;
-        } else if (Math.random() < 0.35) {
-            keys[cpu.controls.kick] = true;
-        } else {
-            keys[cpu.controls.punch] = true;
-        }
-    }
-}
 
 function checkHit(attacker, defender, defenderHpEl) {
     if (attacker.isAttacking) {
@@ -615,50 +456,9 @@ function checkHit(attacker, defender, defenderHpEl) {
         );
 
         if (isColliding) {
-            const hitX = box.x + box.width / 2;
-            const hitY = box.y + box.height / 2;
-
-            // ===== НОВОЕ: рывок даёт i-frames — если защищающийся сейчас в рывке
-            // (fighter.invulnerable), удар полностью проходит мимо, как уворот =====
-            if (defender.invulnerable) {
-                attacker.isAttacking = false; // атака всё равно "тратится", просто без урона
-                addSparks(hitX, hitY, '#8fffe0', 8);
-                spawnFloatingText(hitX, hitY - 10, 'MISS!', '#8fffe0', 14);
-                return;
-            }
-
             attacker.isAttacking = false;
             const isKick = attacker.attackType === 'kick';
-            const isUlt = attacker.attackType === 'ultimate';
-
-            // НОВОЕ: у ультимейта огромный урон и он почти не гасится блоком
-            let damage;
-            if (isUlt) damage = defender.isBlocking ? 8 : 35;
-            else damage = defender.isBlocking ? (isKick ? 3 : 2) : (isKick ? 16 : 12);
-
-            // ===== НОВОЕ: набор шкалы ультимейта =====
-            // Раньше шкала копилась мучительно долго (десяток+ ударов за бой).
-            // Теперь прибавки в 2.5–3 раза больше — ульт реально успевает
-            // зарядиться за один раунд при активном обмене ударами.
-            // Атакующий копит шкалу за успешные удары (больше — за некрослоченные).
-            // Защищающийся тоже немного копит, получая урон — это даёт отстающему
-            // бойцу шанс на камбэк мощным ответным ударом.
-            if (!isUlt) {
-                if (!defender.isBlocking) {
-                    attacker.ultCharge = Math.min(100, attacker.ultCharge + (isKick ? 26 : 18));
-                    defender.ultCharge = Math.min(100, defender.ultCharge + (isKick ? 15 : 10));
-                } else {
-                    attacker.ultCharge = Math.min(100, attacker.ultCharge + 6); // чуть-чуть даже за блок
-                }
-                attacker.ultReady = attacker.ultCharge >= 100;
-                defender.ultReady = defender.ultCharge >= 100;
-            }
-
-            // ===== НОВОЕ: hit-stop — маленькая заморозка кадра при весомом ударе,
-            // чтобы попадание ощущалось увесистее (как в классических файтингах) =====
-            if (!defender.isBlocking) {
-                hitStopFrames = isUlt ? 16 : (isKick ? 6 : 3);
-            }
+            let damage = defender.isBlocking ? (isKick ? 3 : 2) : (isKick ? 16 : 12);
 
             defender.hp -= damage;
             if (defender.hp < 0) defender.hp = 0;
@@ -667,29 +467,24 @@ function checkHit(attacker, defender, defenderHpEl) {
             if (defender.hp <= 25) defenderHpEl.classList.add('low');
             else if (defender.hp <= 55) defenderHpEl.classList.add('mid');
 
+            const hitX = box.x + box.width / 2;
+            const hitY = box.y + box.height / 2;
+
             if (defender.isBlocking) {
                 addSparks(hitX, hitY, '#cfd8e3', 6);
                 triggerShake(2, 6);
                 playSound('block');
                 attacker.comboCount = 0; // заблокированный удар сбрасывает комбо атакующего
-                // НОВОЕ: даже сквозь блок показываем приглушённую цифру чип-урона
-                spawnDamageNumber(hitX, hitY, damage, false, true);
             } else {
-                defender.hitFlash = isUlt ? 12 : 6;
-                // НОВОЕ: у ультимейта своя палитра искр и куда более сильная тряска экрана
-                addSparks(hitX, hitY, isUlt ? '#7c4dff' : (isKick ? '#ff8a3d' : '#ffcc00'), isUlt ? 28 : (isKick ? 16 : 12));
-                triggerShake(isUlt ? 16 : (isKick ? 9 : 6), isUlt ? 22 : (isKick ? 14 : 10));
-                playSound(isUlt ? 'ko' : (isKick ? 'kick' : 'punch')); // звук "ko" тоже подходит как мощный удар
+                defender.hitFlash = 6;
+                addSparks(hitX, hitY, isKick ? '#ff8a3d' : '#ffcc00', isKick ? 16 : 12);
+                triggerShake(isKick ? 9 : 6, isKick ? 14 : 10);
+                playSound(isKick ? 'kick' : 'punch');
 
                 // Комбо: если предыдущий удачный удар этого бойца был недавно (менее 1.5 сек / 90 кадров назад),
                 // считаем его продолжением серии, иначе начинаем счёт заново.
                 attacker.comboCount = (frame - attacker.lastHitFrame < 90) ? attacker.comboCount + 1 : 1;
                 attacker.lastHitFrame = frame;
-
-                // ===== НОВОЕ: цифра урона над головой + подпись "CRITICAL!" для
-                // тяжёлых ударов (пинок и ультимейт считаются "критическими") =====
-                spawnDamageNumber(hitX, hitY, damage, isUlt || isKick, false);
-
                 if (attacker.comboCount >= 2) {
                     spawnComboText(hitX, hitY - 20, attacker.comboCount);
                 }
@@ -706,69 +501,7 @@ function checkHit(attacker, defender, defenderHpEl) {
     }
 }
 
-// ===== НОВОЕ: обновляет ширину и подсветку полоски ультимейта на экране =====
-// Вызывается каждый кадр в gameLoop() — читает fighter.ultCharge/ultReady
-// и просто отражает их в виде CSS-стилей на соответствующем div'е.
-function updateUltBar(fighter, el) {
-    el.style.width = fighter.ultCharge + '%';
-    el.classList.toggle('ready', fighter.ultReady);
-}
-
-// ===== НОВОЕ: параметры рывка (стамина, длительность, окно двойного тапа) =====
-const DASH_COST = 30;
-const DASH_DURATION_MS = 160; // сколько длится сам рывок (i-frames + повышенная скорость)
-const DASH_COOLDOWN_MS = 550; // сколько ждать до следующего рывка
-const DOUBLE_TAP_WINDOW_MS = 260; // за сколько мс второе нажатие ещё считается "двойным тапом"
-
-// ===== НОВОЕ: обновляет ширину полоски стамины на экране =====
-function updateStaminaBar(fighter, el) {
-    el.style.width = fighter.stamina + '%';
-    // Подсвечиваем полоску, когда стамины хватает на рывок — сигнал игроку
-    el.classList.toggle('ready', fighter.stamina >= DASH_COST && !fighter.dashCooldown);
-}
-
-// Вызывается на КАЖДОЕ свежее нажатие клавиши влево/вправо для обоих бойцов.
-// Если распознан двойной тап по одному направлению — запускаем рывок.
-function tryDash(fighter, code) {
-    let dir = null;
-    if (code === fighter.controls.left) dir = 'left';
-    else if (code === fighter.controls.right) dir = 'right';
-    else return; // это не клавиша движения этого бойца — рывок не при чём
-
-    const now = performance.now();
-    const lastTap = fighter.lastTapTime[dir] || 0;
-
-    if (now - lastTap < DOUBLE_TAP_WINDOW_MS) {
-        startDash(fighter, dir === 'left' ? -1 : 1);
-    }
-    fighter.lastTapTime[dir] = now;
-}
-
-// Собственно запуск рывка: тратит стамину, даёт бойцу i-frames (неуязвимость)
-// и на короткое время резко увеличивает его скорость в выбранном направлении.
-function startDash(fighter, dirSign) {
-    if (isGameOver || isPaused) return;
-    if (fighter.isDashing || fighter.dashCooldown) return;
-    if (fighter.stamina < DASH_COST) return; // не хватает стамины — рывок не выходит
-    if (fighter.isBlocking || fighter.isAttacking) return; // нельзя рвануть во время блока/удара
-
-    fighter.stamina -= DASH_COST;
-    fighter.isDashing = true;
-    fighter.invulnerable = true;
-    fighter.dashCooldown = true;
-    fighter.dashDir = dirSign;
-
-    playSound('block'); // используем короткий "вжух"-звук блока как заглушку для рывка
-
-    setTimeout(() => {
-        fighter.isDashing = false;
-        fighter.invulnerable = false;
-    }, DASH_DURATION_MS);
-
-    setTimeout(() => { fighter.dashCooldown = false; }, DASH_COOLDOWN_MS);
-}
-
-
+// ---------- background: NES dojo arena ----------
 const stars = Array.from({ length: 40 }, () => ({
     x: Math.random() * worldW,
     y: Math.random() * (floorY - 140),
@@ -783,16 +516,10 @@ const clouds = [
     { x: 720, y: 20, w: 70, speed: 0.07 }
 ];
 
-// ===== НОВОЕ: толпа стала гуще и разнообразнее — два ряда, разные цвета одежды,
-// и часть болельщиков периодически поднимает руку, будто подбадривая бойцов =====
-const crowdColors = ['rgba(255,80,80,0.75)', 'rgba(80,140,255,0.75)', 'rgba(255,204,0,0.7)', 'rgba(150,90,220,0.75)', 'rgba(90,220,180,0.7)'];
-const crowd = Array.from({ length: 30 }, (_, i) => ({
-    x: arenaLeft + 6 + (i % 15) * ((arenaRight - arenaLeft - 12) / 14) + (Math.random() * 8 - 4),
-    row: i < 15 ? 0 : 1, // передний и задний ряд — задний чуть выше и темнее (глубина)
+const crowd = Array.from({ length: 18 }, (_, i) => ({
+    x: arenaLeft + 10 + i * ((arenaRight - arenaLeft - 20) / 17) + (Math.random() * 8 - 4),
     bob: Math.random() * Math.PI * 2,
-    h: 10 + Math.random() * 6,
-    color: crowdColors[Math.floor(Math.random() * crowdColors.length)],
-    armPhase: Math.random() * Math.PI * 2 // своя фаза "взмаха рукой" у каждого фаната
+    h: 10 + Math.random() * 6
 }));
 
 // Амбиентные угольки/искры, которые медленно поднимаются вверх по всей арене —
@@ -891,13 +618,11 @@ function drawArena() {
     ctx.stroke();
     const flagColors = ['#ff0055', '#ffcc00', '#33ffee', '#3366ff', '#ff8a3d'];
     for (let fx = arenaLeft - 10, i = 0; fx < arenaRight + 10; fx += 26, i++) {
-        // НОВОЕ: флажки слегка "колышутся" по синусоиде — каждый со своей фазой
-        const wave = Math.sin(t * 2.4 + i * 0.6) * 3;
         ctx.fillStyle = flagColors[i % flagColors.length];
         ctx.beginPath();
         ctx.moveTo(fx, roofY - 55);
         ctx.lineTo(fx + 12, roofY - 55);
-        ctx.lineTo(fx + 6 + wave, roofY - 44);
+        ctx.lineTo(fx + 6, roofY - 44);
         ctx.closePath();
         ctx.fill();
     }
@@ -917,8 +642,6 @@ function drawArena() {
     const lanternXs = [140, 260, 540, 660];
     lanternXs.forEach((lx, i) => {
         const sway = Math.sin(t * 1.3 + i) * 3;
-        // НОВОЕ: лёгкое мерцание яркости фонаря, будто внутри живой огонёк
-        const flicker = 0.4 + 0.15 * Math.sin(t * 6 + i * 2);
         ctx.strokeStyle = '#5a2a2a';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -929,9 +652,9 @@ function drawArena() {
         ctx.beginPath();
         ctx.ellipse(lx + sway, roofY + 22, 7, 9, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(255,204,85,${flicker})`;
+        ctx.fillStyle = 'rgba(255,204,85,0.5)';
         ctx.beginPath();
-        ctx.ellipse(lx + sway, roofY + 22, 14, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(lx + sway, roofY + 22, 12, 14, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#ffcc55';
         ctx.fillRect(lx + sway - 1, roofY + 15, 2, 14);
@@ -951,30 +674,14 @@ function drawArena() {
         }
     }
 
-    // ===== НОВОЕ: толпа рисуется в два прохода — сперва дальний ряд (мельче,
-    // темнее, почти силуэтом), затем ближний (крупнее и в цвете) — даёт глубину =====
-    [1, 0].forEach(rowToDraw => {
-        crowd.filter(p => p.row === rowToDraw).forEach(p => {
-            const bob = Math.sin(t * 2 + p.bob) * 2;
-            const px = p.x - parallax * 0.5;
-            const py = roofY + 92 + bob + (rowToDraw === 1 ? -6 : 0); // задний ряд чуть выше
-            const scale = rowToDraw === 1 ? 0.8 : 1;
-
-            ctx.globalAlpha = rowToDraw === 1 ? 0.5 : 0.9;
-            ctx.fillStyle = rowToDraw === 1 ? 'rgba(10,6,14,0.85)' : p.color;
-            ctx.beginPath();
-            ctx.arc(px, py, 4 * scale, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillRect(px - 4 * scale, py + 3 * scale, 8 * scale, p.h * scale);
-
-            // Периодически фанат вскидывает руку вверх (волна "подбадривания")
-            const cheering = Math.sin(t * 2.2 + p.armPhase) > 0.75;
-            if (cheering) {
-                ctx.fillRect(px + 4 * scale, py - 6 * scale, 2 * scale, 10 * scale);
-            }
-        });
+    ctx.fillStyle = 'rgba(10,6,14,0.85)';
+    crowd.forEach((p, i) => {
+        const bob = Math.sin(t * 2 + p.bob) * 2;
+        ctx.beginPath();
+        ctx.arc(p.x - parallax * 0.5, roofY + 92 + bob, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(p.x - parallax * 0.5 - 4, roofY + 95 + bob, 8, p.h);
     });
-    ctx.globalAlpha = 1;
 
     ctx.fillStyle = '#241018';
     ctx.fillRect(arenaLeft, roofY + 96, arenaRight - arenaLeft, 6);
@@ -1036,27 +743,6 @@ function drawArena() {
     // Летающие угольки поверх всей сцены — добавляют "живости" фону
     updateAndDrawEmbers(t);
 
-    // ===== НОВОЕ: два прожектора медленно "гуляют" по арене слева направо и
-    // обратно — как на настоящей сцене/ринге, добавляют динамики фону =====
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter'; // свет складывается поверх сцены, а не перекрывает её
-    [{ base: worldW * 0.28, speed: 0.35, hue: 'rgba(255,90,150,0.10)' },
-     { base: worldW * 0.72, speed: -0.28, hue: 'rgba(80,170,255,0.10)' }].forEach(beam => {
-        const sweepX = beam.base + Math.sin(t * beam.speed) * 90;
-        const grad = ctx.createLinearGradient(sweepX, 0, sweepX - 60, floorY);
-        grad.addColorStop(0, beam.hue);
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(sweepX - 26, 0);
-        ctx.lineTo(sweepX + 26, 0);
-        ctx.lineTo(sweepX + 90, floorY);
-        ctx.lineTo(sweepX - 90, floorY);
-        ctx.closePath();
-        ctx.fill();
-    });
-    ctx.restore();
-
     // Виньетка: затемнение по краям экрана, чтобы взгляд тянуло к центру арены,
     // где происходит бой. Классический приём для "кинематографичной" картинки.
     const vignette = ctx.createRadialGradient(
@@ -1084,32 +770,12 @@ function gameLoop() {
     drawArena();
 
     if (!isPaused) {
-        // НОВОЕ: если идёт hit-stop (заморозка после сильного удара) — на эти
-        // несколько кадров пропускаем update() и просто дорисовываем бойцов
-        // в их текущих позах. Получается короткая, "смачная" пауза на попадании.
-        if (hitStopFrames > 0) {
-            hitStopFrames--;
-            p1.draw();
-            p2.draw();
-        } else {
-            // НОВОЕ: если включён режим CPU — перед обновлением бота подставляем
-            // за RITA "нажатия" клавиш, сгенерированные простым ИИ
-            if (cpuEnabled) aiControlP2(p2, p1);
-
-            p1.update(p2);
-            p2.update(p1);
-            checkHit(p1, p2, p2HpEl);
-            checkHit(p2, p1, p1HpEl);
-        }
+        p1.update(p2);
+        p2.update(p1);
+        checkHit(p1, p2, p2HpEl);
+        checkHit(p2, p1, p1HpEl);
         updateAndDrawSparks();
         updateAndDrawFloatingTexts();
-
-        // НОВОЕ: держим шкалы ультимейта на экране в актуальном состоянии
-        updateUltBar(p1, p1UltEl);
-        updateUltBar(p2, p2UltEl);
-        // НОВОЕ: полоски стамины тоже держим в актуальном состоянии
-        updateStaminaBar(p1, p1StaminaEl);
-        updateStaminaBar(p2, p2StaminaEl);
     } else {
         p1.draw();
         p2.draw();
@@ -1221,21 +887,6 @@ function startNextRound() {
     p1.x = 200; p1.y = 200;
     p2.x = 560; p2.y = 200;
     p1.comboCount = 0; p2.comboCount = 0;
-
-    // НОВОЕ: обнуляем шкалы ультимейта и сразу обновляем их отображение,
-    // иначе заряд мог бы "перетечь" из прошлого раунда
-    p1.ultCharge = 0; p1.ultReady = false;
-    p2.ultCharge = 0; p2.ultReady = false;
-    updateUltBar(p1, p1UltEl);
-    updateUltBar(p2, p2UltEl);
-
-    // НОВОЕ: полная стамина в начале раунда и сброс любого "зависшего" рывка
-    p1.stamina = 100; p1.isDashing = false; p1.dashCooldown = false; p1.invulnerable = false;
-    p2.stamina = 100; p2.isDashing = false; p2.dashCooldown = false; p2.invulnerable = false;
-    updateStaminaBar(p1, p1StaminaEl);
-    updateStaminaBar(p2, p2StaminaEl);
-
-    hitStopFrames = 0; // НОВОЕ: сбрасываем возможную заморозку кадра
     sparks = [];
     floatingTexts = [];
     shake = { time: 0, magnitude: 0 };
@@ -1306,16 +957,6 @@ speedToggleBtn.addEventListener('click', () => {
 
 // Кнопка "Заново" / "Следующий раунд" на финальном экране
 continueBtn.addEventListener('click', handleContinue);
-
-// ===== НОВОЕ: переключение "Игрок 2 человек / Игрок 2 — компьютер" =====
-cpuToggleBtn.addEventListener('click', () => {
-    cpuEnabled = !cpuEnabled;
-    cpuToggleBtn.textContent = cpuEnabled ? 'CPU (бот)' : 'Человек';
-    // Дописываем "(CPU)" к имени бойца в шапке, чтобы было видно, кто сейчас бот
-    p2NameEl.textContent = cpuEnabled ? baseP2Name + ' — [CPU]' : baseP2Name;
-    // На всякий случай отпускаем все клавиши RITA, чтобы не залипли при переключении
-    for (const key of Object.values(p2.controls)) keys[key] = false;
-});
 
 // Переключение формата матча: 1 раунд <-> до 2 побед из 3 раундов
 roundsToggleBtn.addEventListener('click', () => {
