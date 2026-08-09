@@ -1346,3 +1346,16 @@ roundsToggleBtn.addEventListener('click', () => {
 updateRoundIndicator(); // выставляем начальный (пустой) текст индикатора раундов
 startTimer();
 gameLoop();
+// Переключение отображения подсказок управления
+const hintsToggleBtn = document.getElementById('hints-toggle-btn');
+const hintsBlock = document.getElementById('controls-hints');
+let hintsEnabled = true;
+
+if (hintsToggleBtn && hintsBlock) {
+    hintsToggleBtn.addEventListener('click', () => {
+        hintsEnabled = !hintsEnabled;
+        hintsToggleBtn.textContent = hintsEnabled ? 'ВКЛ' : 'ВЫКЛ';
+        hintsToggleBtn.style.borderColor = hintsEnabled ? '#ff0055' : '#777';
+        hintsBlock.style.display = hintsEnabled ? 'block' : 'none';
+    });
+}
