@@ -6,10 +6,14 @@
     padding: 0;
     font-family: 'Courier New', Courier, monospace;
     user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 html, body {
     height: 100%;
+    width: 100%;
+    touch-action: manipulation;
 }
 
 body {
@@ -25,9 +29,9 @@ body {
 
 .game-wrapper {
     position: relative;
-    width: 94vw;
+    width: 100vw;
+    height: 100vh;
     max-width: 1900px;
-    height: 90vh;
     max-height: 950px;
     background-color: #1a1c29;
     border: 4px solid #ff0055;
@@ -57,9 +61,10 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    padding: 10px clamp(12px, 2vw, 28px);
+    padding: 6px clamp(10px, 2vw, 28px);
     background-color: #12131c;
     border-bottom: 3px solid #2a2d3d;
+    z-index: 2;
 }
 
 .fighter-card {
@@ -76,8 +81,8 @@ body {
 
 .portrait {
     flex: 0 0 auto;
-    width: clamp(34px, 4vw, 56px);
-    height: clamp(34px, 4vw, 56px);
+    width: clamp(30px, 4vw, 56px);
+    height: clamp(30px, 4vw, 56px);
     border: 3px solid #000;
     outline: 2px solid #555;
     border-radius: 2px;
@@ -110,7 +115,7 @@ body {
     font-size: clamp(8px, 0.85vw, 12px);
     font-weight: bold;
     color: #aaa;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     white-space: nowrap;
@@ -121,17 +126,14 @@ body {
 .hp-bar-bg {
     position: relative;
     width: 100%;
-    height: clamp(14px, 1.6vw, 22px);
+    height: clamp(12px, 1.6vw, 22px);
     background-color: #331118;
     border: 2px solid #555;
     box-shadow: inset 0 0 0 1px #000;
-    border-radius: 0;
     overflow: hidden;
 }
 
-.fighter-card.p2 .hp-bar-bg {
-    transform: scaleX(-1);
-}
+.fighter-card.p2 .hp-bar-bg { transform: scaleX(-1); }
 
 .hp-bar-fill {
     height: 100%;
@@ -142,47 +144,28 @@ body {
 .hp-bar-fill.mid { background: linear-gradient(180deg, #ffe14d, #ffb700, #cc8f00); }
 .hp-bar-fill.low { background: linear-gradient(180deg, #ff6b4d, #ff0055, #a3003a); }
 
-.hp-bar-bg::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: repeating-linear-gradient(
-        90deg,
-        transparent 0,
-        transparent calc(10% - 2px),
-        rgba(0, 0, 0, 0.55) calc(10% - 2px),
-        rgba(0, 0, 0, 0.55) 10%
-    );
-}
-
 .timer-col {
     flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .round-indicator {
-    font-size: clamp(8px, 0.8vw, 11px);
+    font-size: clamp(7px, 0.8vw, 11px);
     color: #ffcc00;
-    letter-spacing: 0.5px;
     white-space: nowrap;
-    min-height: 12px;
 }
 
 .timer {
-    font-family: 'Press Start 2P', 'Courier New', monospace;
-    font-size: clamp(16px, 1.9vw, 26px);
-    font-weight: normal;
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(14px, 1.8vw, 26px);
     color: #ffcc00;
     background-color: #000;
-    padding: clamp(6px, 0.8vw, 10px) clamp(10px, 1.4vw, 18px);
-    border: 3px solid #ffcc00;
-    border-radius: 0;
-    box-shadow: 0 0 10px rgba(255, 204, 0, 0.5), inset 0 0 0 2px #3a2a00;
-    flex: 0 0 auto;
+    padding: clamp(4px, 0.6vw, 10px) clamp(8px, 1.2vw, 18px);
+    border: 2px solid #ffcc00;
+    box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
 }
 
 .canvas-wrap {
@@ -201,12 +184,80 @@ canvas {
     object-fit: contain;
 }
 
+/* СТИЛИ ВИЗУАЛЬНЫХ КОНТРОЛЛЕРОВ */
+.touch-controls {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 12px 15px;
+}
+
+.p1-controller, .p2-controller {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.dpad, .action-buttons {
+    pointer-events: auto;
+    position: relative;
+}
+
+.dpad {
+    width: 100px;
+    height: 100px;
+}
+
+.action-buttons {
+    width: 120px;
+    height: 100px;
+}
+
+.t-btn {
+    position: absolute;
+    background: rgba(20, 24, 38, 0.65);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-weight: bold;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+    touch-action: manipulation;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+    transition: background 0.05s ease, border-color 0.05s ease, transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+/* ЭФФЕКТ НАЖАТИЯ (ПОДСВЕТКА) */
+.t-btn:active, .t-btn.active {
+    background: rgba(255, 0, 85, 0.85) !important;
+    border-color: #ffcc00 !important;
+    color: #fff !important;
+    transform: scale(0.92);
+    box-shadow: 0 0 12px rgba(255, 0, 85, 0.9);
+}
+
+/* Позиционирование крестовины */
+.dpad-up { top: 0; left: 33px; width: 34px; height: 34px; }
+.dpad-left { top: 33px; left: 0; width: 34px; height: 34px; }
+.dpad-right { top: 33px; right: 0; width: 34px; height: 34px; }
+
+/* Позиционирование атак */
+.btn-punch { top: 5px; left: 0; width: 52px; height: 38px; border-color: rgba(51, 102, 255, 0.6); }
+.btn-kick { top: 5px; right: 0; width: 52px; height: 38px; border-color: rgba(255, 138, 61, 0.6); }
+.btn-block { bottom: 5px; left: 0; width: 52px; height: 38px; border-color: rgba(180, 180, 180, 0.6); }
+.btn-ult { bottom: 5px; right: 0; width: 52px; height: 38px; border-color: rgba(255, 204, 0, 0.8); color: #ffcc00; }
+
 .modal {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background-color: rgba(0, 0, 0, 0.85);
     display: flex;
     flex-direction: column;
@@ -215,49 +266,27 @@ canvas {
     z-index: 10;
 }
 
-.modal.hidden {
-    display: none;
-}
+.modal.hidden { display: none; }
 
 .modal h1 {
-    font-family: 'Press Start 2P', 'Courier New', monospace;
+    font-family: 'Press Start 2P', monospace;
     font-size: clamp(18px, 3vw, 34px);
     line-height: 1.6;
     text-align: center;
     color: #ff0055;
     margin-bottom: 16px;
-    padding: 0 20px;
     text-shadow: 3px 3px 0 #7a0026, 0 0 14px #ff0055;
 }
 
-.modal p {
-    font-size: clamp(11px, 1.3vw, 16px);
-    color: #ccc;
-    margin-bottom: 22px;
-    letter-spacing: 0.5px;
-}
-
 .modal button {
-    font-family: 'Press Start 2P', 'Courier New', monospace;
-    padding: clamp(10px, 1.4vw, 16px) clamp(16px, 2.2vw, 28px);
-    font-size: clamp(11px, 1.3vw, 16px);
-    font-weight: normal;
+    font-family: 'Press Start 2P', monospace;
+    padding: 12px 24px;
+    font-size: 14px;
     background-color: #ff0055;
     color: #fff;
     border: none;
     border-bottom: 4px solid #7a0026;
-    border-radius: 0;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(255, 0, 85, 0.5);
-}
-
-.modal button:hover {
-    background-color: #ff2277;
-}
-
-.modal button:active {
-    border-bottom-width: 1px;
-    transform: translateY(3px);
 }
 
 .settings-btn {
@@ -272,51 +301,37 @@ canvas {
     font-size: 18px;
     padding: 6px 10px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.settings-btn:hover {
-    background-color: rgba(255, 0, 85, 0.35);
 }
 
 #settings-screen h2 {
     color: #ffcc00;
-    font-size: 26px;
-    margin-bottom: 20px;
-    text-shadow: 0 0 10px #ffcc00;
+    font-size: 24px;
+    margin-bottom: 15px;
 }
 
 .settings-content {
-    width: 80%;
+    width: 85%;
     max-width: 350px;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
+    padding: 8px 0;
     border-bottom: 1px solid #33384d;
-    font-size: 14px;
-    color: #fff;
+    font-size: 13px;
 }
 
 .toggle-btn {
-    padding: 6px 14px;
+    padding: 6px 12px;
     background-color: #2a2d3d;
     border: 2px solid #ff0055;
     color: #fff;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
-    font-family: inherit;
-    transition: all 0.2s ease;
-}
-
-.toggle-btn:hover {
-    background-color: #ff0055;
-    box-shadow: 0 0 8px rgba(255, 0, 85, 0.6);
 }
 
 .close-btn {
@@ -325,48 +340,32 @@ canvas {
     border: none;
     color: #fff;
     font-weight: bold;
-    font-size: 14px;
     border-radius: 4px;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(255, 0, 85, 0.4);
-    font-family: inherit;
-}
-
-.close-btn:hover {
-    background-color: #ff2277;
 }
 
 .ult-bar-bg {
     position: relative;
     width: 100%;
-    height: 8px;
+    height: 6px;
     background-color: #0d1d2a;
     border: 1px solid #1b263d;
-    margin-top: 4px;
+    margin-top: 3px;
     overflow: hidden;
-    border-radius: 2px;
 }
 
-.fighter-card.p2 .ult-bar-bg {
-    transform: scaleX(-1);
-}
+.fighter-card.p2 .ult-bar-bg { transform: scaleX(-1); }
 
 .ult-bar-fill {
     height: 100%;
     width: 0%;
     background: linear-gradient(90deg, #00c3ff, #7c4dff);
-    transition: width 0.2s ease, background 0.3s ease;
+    transition: width 0.2s ease;
 }
 
 .ult-bar-fill.ready {
     background: linear-gradient(90deg, #ffe14d, #ff8a00);
     box-shadow: 0 0 10px rgba(255, 204, 0, 0.85);
-    animation: ult-pulse 0.9s ease-in-out infinite;
-}
-
-@keyframes ult-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
 }
 
 .stamina-bar-bg {
@@ -375,22 +374,15 @@ canvas {
     height: 5px;
     background-color: #0d1a12;
     border: 1px solid #1b3d24;
-    margin-top: 3px;
+    margin-top: 2px;
     overflow: hidden;
-    border-radius: 2px;
 }
 
-.fighter-card.p2 .stamina-bar-bg {
-    transform: scaleX(-1);
-}
+.fighter-card.p2 .stamina-bar-bg { transform: scaleX(-1); }
 
 .stamina-bar-fill {
     height: 100%;
     width: 100%;
     background: linear-gradient(90deg, #2ecc71, #7cff4d);
     transition: width 0.15s ease;
-}
-
-.stamina-bar-fill.ready {
-    box-shadow: 0 0 6px rgba(124, 255, 77, 0.7);
 }

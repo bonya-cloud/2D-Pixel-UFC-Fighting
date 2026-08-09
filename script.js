@@ -15,7 +15,6 @@ const arenaRight = 750;
 const worldW = 800;
 const worldH = 400;
 
-// Переменные настроек
 let soundEnabled = true;
 let gameSpeed = 1;
 
@@ -41,21 +40,60 @@ const p1StaminaEl = document.getElementById('p1-stamina');
 const p2StaminaEl = document.getElementById('p2-stamina');
 const cpuToggleBtn = document.getElementById('cpu-toggle-btn');
 const p2NameEl = document.getElementById('p2-name');
-const baseP2Name = p2NameEl ? p2NameEl.textContent : '';
 
 let timeLeft = 99;
 let timerInterval = null;
 let isGameOver = false;
 let frame = 0;
 let isPaused = false; 
-let cpuEnabled = false;
+let cpuEnabled = true;
+
 let hitStopFrames = 0;
 
 const keys = {};
 
+// Связь экранных кнопок с клавишами
+const touchButtons = document.querySelectorAll('.t-btn');
+const touchBtnMap = {};
+
+touchButtons.forEach(btn => {
+    const code = btn.getAttribute('data-key');
+    if (code) touchBtnMap[code] = btn;
+
+    const handlePress = (e) => {
+        e.preventDefault();
+        btn.classList.add('active');
+        if (!keys[code]) {
+            tryDash(p1, code);
+            tryDash(p2, code);
+        }
+        keys[code] = true;
+    };
+
+    const handleRelease = (e) => {
+        e.preventDefault();
+        btn.classList.remove('active');
+        keys[code] = false;
+    };
+
+    btn.addEventListener('touchstart', handlePress, { passive: false });
+    btn.addEventListener('touchend', handleRelease, { passive: false });
+    btn.addEventListener('touchcancel', handleRelease, { passive: false });
+    
+    btn.addEventListener('mousedown', handlePress);
+    btn.addEventListener('mouseup', handleRelease);
+    btn.addEventListener('mouseleave', handleRelease);
+});
+
+// Обработка клавиатуры + синхронизация подсветки экрнаных кнопок
 window.addEventListener('keydown', (e) => {
     const isFreshPress = !keys[e.code];
     keys[e.code] = true;
+
+    // Подсвечиваем виртуальную кнопку на экране
+    if (touchBtnMap[e.code]) {
+        touchBtnMap[e.code].classList.add('active');
+    }
 
     if (isFreshPress) {
         tryDash(p1, e.code);
@@ -78,6 +116,11 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
     keys[e.code] = false;
+    
+    // Снимаем подсветку с виртуальной кнопки
+    if (touchBtnMap[e.code]) {
+        touchBtnMap[e.code].classList.remove('active');
+    }
 });
 
 let audioCtx = null;
@@ -263,7 +306,6 @@ class Fighter {
         ctx.fill();
         ctx.restore();
 
-        // Пошатывание при < 20% HP
         let criticalStagger = 0;
         if (this.hp < 20 && this.isGrounded && !this.isAttacking) {
             criticalStagger = Math.sin(frame * 0.25) * 1.2;
@@ -357,7 +399,6 @@ class Fighter {
         ctx.fillRect(4, -12, 3, 3);
         ctx.shadowBlur = 0;
 
-        // Руки
         ctx.fillStyle = bodyColor;
         ctx.fillRect(isKicking ? 6 : 9, isKicking ? 8 : 10, 9, 18);
         ctx.fillStyle = '#d92b2b';
@@ -370,7 +411,6 @@ class Fighter {
             ctx.fillRect(this.width / 2 - 2 + 19, 11, 14, 16);
         }
 
-        // Вспышка урона
         if (this.hitFlash > 0) {
             ctx.globalCompositeOperation = 'source-atop';
             ctx.fillStyle = `rgba(255,255,255,${Math.min(this.hitFlash / 6, 0.85)})`;
@@ -378,22 +418,21 @@ class Fighter {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // ТРАВМЫ И СИНЯКИ (РИСУЮТСЯ ПОВЕРХ ТЕЛА)
         if (this.hp < 75) {
-            ctx.fillStyle = '#a81b1b'; // ссадина на щеке
+            ctx.fillStyle = '#a81b1b';
             ctx.fillRect(3, -16, 2, 2);
         }
 
         if (this.hp < 50) {
-            ctx.fillStyle = '#4a2e56'; // синяк под глазом
+            ctx.fillStyle = '#4a2e56';
             ctx.fillRect(3, -11, 4, 3);
-            ctx.fillRect(-6, 12, 5, 4); // синяк на ребрах
+            ctx.fillRect(-6, 12, 5, 4);
         }
 
         if (this.hp < 30) {
-            ctx.fillStyle = '#780e0e'; // рассечение над бровью
+            ctx.fillStyle = '#780e0e';
             ctx.fillRect(4, -18, 3, 2);
-            ctx.fillRect(-2, 20, 6, 3); // рассечение на прессе
+            ctx.fillRect(-2, 20, 6, 3);
         }
 
         if (this.ultReady) {
@@ -533,27 +572,35 @@ let p2 = new Fighter({
 });
 
 function aiControlP2(cpu, player) {
-    for (const key of Object.values(cpu.controls)) keys[key] = false;
+    for (const key of Object.values(cpu.controls)) {
+        keys[key] = false;
+        if (touchBtnMap[key]) touchBtnMap[key].classList.remove('active');
+    }
 
     const dx = player.x - cpu.x;
     const distance = Math.abs(dx);
     const attackRange = 95;
 
+    const pressKey = (code) => {
+        keys[code] = true;
+        if (touchBtnMap[code]) touchBtnMap[code].classList.add('active');
+    };
+
     if (player.isAttacking && distance < 110 && Math.random() < 0.6) {
-        keys[cpu.controls.block] = true;
+        pressKey(cpu.controls.block);
         return;
     }
 
     if (distance > attackRange) {
-        keys[dx > 0 ? cpu.controls.right : cpu.controls.left] = true;
-        if (Math.random() < 0.004) keys[cpu.controls.jump] = true;
+        pressKey(dx > 0 ? cpu.controls.right : cpu.controls.left);
+        if (Math.random() < 0.004) pressKey(cpu.controls.jump);
     } else if (!cpu.attackCooldown) {
         if (cpu.ultReady && Math.random() < 0.35) {
-            keys[cpu.controls.ult] = true;
+            pressKey(cpu.controls.ult);
         } else if (Math.random() < 0.35) {
-            keys[cpu.controls.kick] = true;
+            pressKey(cpu.controls.kick);
         } else {
-            keys[cpu.controls.punch] = true;
+            pressKey(cpu.controls.punch);
         }
     }
 }
@@ -767,19 +814,13 @@ function drawArena() {
     ctx.beginPath();
     ctx.arc(680, 55, 22, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(122,46,46,0.25)';
-    ctx.beginPath();
-    ctx.arc(672, 48, 5, 0, Math.PI * 2);
-    ctx.arc(688, 62, 4, 0, Math.PI * 2);
-    ctx.fill();
 
-    ctx.fillStyle = 'rgba(20, 8, 28, 0.55)';
     clouds.forEach(c => {
         c.x += c.speed;
         if (c.x - c.w > worldW) c.x = -c.w;
+        ctx.fillStyle = 'rgba(20, 8, 28, 0.55)';
         ctx.beginPath();
         ctx.ellipse(c.x, c.y, c.w / 2, 10, 0, 0, Math.PI * 2);
-        ctx.ellipse(c.x + c.w * 0.3, c.y + 4, c.w / 3, 8, 0, 0, Math.PI * 2);
         ctx.fill();
     });
 
@@ -805,132 +846,24 @@ function drawArena() {
     ctx.translate(-parallax, 0);
     const roofY = floorY - 100;
 
-    ctx.strokeStyle = '#4a2a2a';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(arenaLeft - 20, roofY - 55);
-    ctx.lineTo(arenaRight + 20, roofY - 55);
-    ctx.stroke();
-    const flagColors = ['#ff0055', '#ffcc00', '#33ffee', '#3366ff', '#ff8a3d'];
-    for (let fx = arenaLeft - 10, i = 0; fx < arenaRight + 10; fx += 26, i++) {
-        const wave = Math.sin(t * 2.4 + i * 0.6) * 3;
-        ctx.fillStyle = flagColors[i % flagColors.length];
-        ctx.beginPath();
-        ctx.moveTo(fx, roofY - 55);
-        ctx.lineTo(fx + 12, roofY - 55);
-        ctx.lineTo(fx + 6 + wave, roofY - 44);
-        ctx.closePath();
-        ctx.fill();
-    }
-
     ctx.fillStyle = '#3a1414';
     ctx.fillRect(arenaLeft - 10, roofY - 10, arenaRight - arenaLeft + 20, 14);
-    ctx.beginPath();
-    ctx.moveTo(arenaLeft - 30, roofY - 10);
-    ctx.lineTo(worldW / 2, roofY - 45);
-    ctx.lineTo(arenaRight + 30, roofY - 10);
-    ctx.closePath();
-    ctx.fillStyle = '#4a1a1a';
-    ctx.fill();
-    ctx.fillStyle = '#2a0d0d';
-    ctx.fillRect(worldW / 2 - 6, roofY - 60, 12, 18);
 
-    const lanternXs = [140, 260, 540, 660];
-    lanternXs.forEach((lx, i) => {
-        const sway = Math.sin(t * 1.3 + i) * 3;
-        const flicker = 0.4 + 0.15 * Math.sin(t * 6 + i * 2);
-        ctx.strokeStyle = '#5a2a2a';
-        ctx.lineWidth = 1;
+    crowd.forEach(p => {
+        const bob = Math.sin(t * 2 + p.bob) * 2;
+        const px = p.x - parallax * 0.5;
+        const py = roofY + 92 + bob;
+        ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.moveTo(lx, roofY);
-        ctx.lineTo(lx + sway, roofY + 14);
-        ctx.stroke();
-        ctx.fillStyle = '#ff5533';
-        ctx.beginPath();
-        ctx.ellipse(lx + sway, roofY + 22, 7, 9, 0, 0, Math.PI * 2);
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(255,204,85,${flicker})`;
-        ctx.beginPath();
-        ctx.ellipse(lx + sway, roofY + 22, 14, 16, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffcc55';
-        ctx.fillRect(lx + sway - 1, roofY + 15, 2, 14);
+        ctx.fillRect(px - 4, py + 3, 8, p.h);
     });
 
-    ctx.fillStyle = '#3d1f2e';
-    for (let x = arenaLeft; x < arenaRight; x += 60) {
-        ctx.fillRect(x + 4, roofY, 52, 100);
-        ctx.strokeStyle = '#5a3348';
-        ctx.strokeRect(x + 4, roofY, 52, 100);
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-        for (let gy = roofY + 12; gy < roofY + 100; gy += 14) {
-            ctx.beginPath();
-            ctx.moveTo(x + 6, gy);
-            ctx.lineTo(x + 54, gy);
-            ctx.stroke();
-        }
-    }
-
-    [1, 0].forEach(rowToDraw => {
-        crowd.filter(p => p.row === rowToDraw).forEach(p => {
-            const bob = Math.sin(t * 2 + p.bob) * 2;
-            const px = p.x - parallax * 0.5;
-            const py = roofY + 92 + bob + (rowToDraw === 1 ? -6 : 0);
-            const scale = rowToDraw === 1 ? 0.8 : 1;
-
-            ctx.globalAlpha = rowToDraw === 1 ? 0.5 : 0.9;
-            ctx.fillStyle = rowToDraw === 1 ? 'rgba(10,6,14,0.85)' : p.color;
-            ctx.beginPath();
-            ctx.arc(px, py, 4 * scale, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillRect(px - 4 * scale, py + 3 * scale, 8 * scale, p.h * scale);
-
-            const cheering = Math.sin(t * 2.2 + p.armPhase) > 0.75;
-            if (cheering) {
-                ctx.fillRect(px + 4 * scale, py - 6 * scale, 2 * scale, 10 * scale);
-            }
-        });
-    });
-    ctx.globalAlpha = 1;
-
-    ctx.fillStyle = '#241018';
-    ctx.fillRect(arenaLeft, roofY + 96, arenaRight - arenaLeft, 6);
-
-    ctx.fillStyle = '#5a1f1f';
-    ctx.fillRect(arenaLeft, roofY - 4, 18, 104);
-    ctx.fillRect(arenaRight - 18, roofY - 4, 18, 104);
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.fillRect(arenaLeft + 12, roofY - 4, 6, 104);
-    ctx.fillRect(arenaRight - 18, roofY - 4, 6, 104);
     ctx.restore();
-
-    const mist = ctx.createLinearGradient(0, floorY - 20, 0, floorY);
-    mist.addColorStop(0, 'rgba(180,170,220,0)');
-    mist.addColorStop(1, 'rgba(180,170,220,0.12)');
-    ctx.fillStyle = mist;
-    ctx.fillRect(arenaLeft, floorY - 20, arenaRight - arenaLeft, 20);
 
     ctx.fillStyle = '#3a2a1e';
     ctx.fillRect(arenaLeft, floorY, arenaRight - arenaLeft, 80);
-    ctx.strokeStyle = '#2a1d14';
-    ctx.lineWidth = 2;
-    for (let x = arenaLeft; x <= arenaRight; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, floorY);
-        ctx.lineTo(x, floorY + 80);
-        ctx.stroke();
-    }
-    for (let y = floorY + 20; y < floorY + 80; y += 20) {
-        ctx.beginPath();
-        ctx.moveTo(arenaLeft, y);
-        ctx.lineTo(arenaRight, y);
-        ctx.stroke();
-    }
-
-    ctx.fillStyle = 'rgba(0,0,0,0.08)';
-    for (let x = arenaLeft, i = 0; x < arenaRight; x += 40, i++) {
-        if (i % 2 === 0) ctx.fillRect(x, floorY, 40, 80);
-    }
 
     ctx.strokeStyle = '#ff0055';
     ctx.lineWidth = 3;
@@ -944,41 +877,7 @@ function drawArena() {
     ctx.fillStyle = '#ff3333';
     ctx.fillRect(arenaRight - 6, floorY, 6, 80);
 
-    ctx.fillStyle = '#2e2418';
-    ctx.beginPath();
-    ctx.ellipse(arenaLeft + 20, floorY + 74, 10, 5, 0, 0, Math.PI * 2);
-    ctx.ellipse(arenaRight - 20, floorY + 74, 10, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
     updateAndDrawEmbers(t);
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    [{ base: worldW * 0.28, speed: 0.35, hue: 'rgba(255,90,150,0.10)' },
-     { base: worldW * 0.72, speed: -0.28, hue: 'rgba(80,170,255,0.10)' }].forEach(beam => {
-        const sweepX = beam.base + Math.sin(t * beam.speed) * 90;
-        const grad = ctx.createLinearGradient(sweepX, 0, sweepX - 60, floorY);
-        grad.addColorStop(0, beam.hue);
-        grad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(sweepX - 26, 0);
-        ctx.lineTo(sweepX + 26, 0);
-        ctx.lineTo(sweepX + 90, floorY);
-        ctx.lineTo(sweepX - 90, floorY);
-        ctx.closePath();
-        ctx.fill();
-    });
-    ctx.restore();
-
-    const vignette = ctx.createRadialGradient(
-        worldW / 2, worldH / 2, worldH * 0.25,
-        worldW / 2, worldH / 2, worldW * 0.65
-    );
-    vignette.addColorStop(0, 'rgba(0,0,0,0)');
-    vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, worldW, worldH);
 }
 
 function gameLoop() {
@@ -1018,7 +917,6 @@ function gameLoop() {
     } else {
         p1.draw();
         p2.draw();
-        
         if (settingsScreen.classList.contains('hidden')) {
             drawPauseScreen();
         }
@@ -1194,7 +1092,6 @@ if (speedToggleBtn) {
             gameSpeed = 1;
             speedToggleBtn.textContent = '1x (Норм)';
         }
-        
         p1.speed = 4 * gameSpeed;
         p2.speed = 4 * gameSpeed;
     });
@@ -1209,9 +1106,12 @@ if (cpuToggleBtn) {
         cpuEnabled = !cpuEnabled;
         cpuToggleBtn.textContent = cpuEnabled ? 'CPU (бот)' : 'Человек';
         if (p2NameEl) {
-            p2NameEl.textContent = cpuEnabled ? baseP2Name + ' — [CPU]' : baseP2Name;
+            p2NameEl.textContent = cpuEnabled ? 'RITA (P2) — [CPU]' : 'RITA (P2)';
         }
-        for (const key of Object.values(p2.controls)) keys[key] = false;
+        for (const key of Object.values(p2.controls)) {
+            keys[key] = false;
+            if (touchBtnMap[key]) touchBtnMap[key].classList.remove('active');
+        }
     });
 }
 

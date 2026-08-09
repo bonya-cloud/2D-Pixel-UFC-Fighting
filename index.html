@@ -2,51 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>2D Pixel UFC Fighting</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-wrapper">
-        <!-- кнопка настроек в правом верхнем углу -->
         <button id="settings-btn" class="settings-btn" title="Настройки">⚙️</button>
 
-        <!-- модальное окно настроек -->
         <div id="settings-screen" class="modal hidden">
             <h2>Настройки</h2>
 
             <div class="settings-content">
-                <!-- Настройка звука -->
                 <div class="setting-item">
                     <span>Звуковые эффекты:</span>
                     <button id="sound-toggle-btn" class="toggle-btn">ВКЛ</button>
                 </div>
 
-                <!-- Настройка подсказок -->
                 <div class="setting-item">
                     <span>Подсказки:</span>
                     <button id="hints-toggle-btn" class="toggle-btn">ВКЛ</button>
                 </div>
 
-                <!-- Настройка скорости игры -->
                 <div class="setting-item">
                     <span>Скорость боя:</span>
                     <button id="speed-toggle-btn" class="toggle-btn">1x (Норм)</button>
                 </div>
 
-                <!-- Формат матча -->
                 <div class="setting-item">
                     <span>Раунды:</span>
                     <button id="rounds-toggle-btn" class="toggle-btn">1 раунд</button>
                 </div>
 
-                <!-- Настройка Игрок 2 / CPU -->
                 <div class="setting-item">
                     <span>Игрок 2:</span>
-                    <button id="cpu-toggle-btn" class="toggle-btn">Человек</button>
+                    <button id="cpu-toggle-btn" class="toggle-btn">CPU (бот)</button>
                 </div>
 
-                <!-- Текст подсказок клавиш -->
                 <div id="controls-hints" style="font-size: 11px; color: #aaa; text-align: center; margin: 15px 0 5px 0;">
                     P1: A/D/W, J/L/K/S | P2: Стрелки, U/O/I/↓
                 </div>
@@ -59,7 +51,7 @@
             <div class="fighter-card p1">
                 <div class="portrait p1-portrait"></div>
                 <div class="info-col">
-                    <div class="name" id="p1-name">DUKE — A/D/W движение (2× = рывок), J удар, L пинок, K блок, S ульт</div>
+                    <div class="name" id="p1-name">DUKE (P1)</div>
                     <div class="hp-bar-bg"><div id="p1-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
                     <div class="ult-bar-bg"><div id="p1-ult" class="ult-bar-fill" style="width: 0%;"></div></div>
                     <div class="stamina-bar-bg"><div id="p1-stamina" class="stamina-bar-fill" style="width: 100%;"></div></div>
@@ -72,7 +64,7 @@
             <div class="fighter-card p2">
                 <div class="portrait p2-portrait"></div>
                 <div class="info-col">
-                    <div class="name" id="p2-name">RITA — Стрелки движение (2× = рывок), U удар, O пинок, I блок, ↓ ульт</div>
+                    <div class="name" id="p2-name">RITA (P2)</div>
                     <div class="hp-bar-bg"><div id="p2-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
                     <div class="ult-bar-bg"><div id="p2-ult" class="ult-bar-fill" style="width: 0%;"></div></div>
                     <div class="stamina-bar-bg"><div id="p2-stamina" class="stamina-bar-fill" style="width: 100%;"></div></div>
@@ -82,6 +74,39 @@
 
         <div class="canvas-wrap">
             <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+            <!-- ЭКРАННЫЕ КРУТИЛКИ / ДЖОЙСТИКИ ДЛЯ P1 И P2 -->
+            <div id="touch-controls" class="touch-controls">
+                <!-- ДЖОЙСТИК P1 (СЛЕВА ВНИЗУ) -->
+                <div class="p1-controller">
+                    <div class="dpad">
+                        <button class="t-btn dpad-up" data-key="KeyW">W</button>
+                        <button class="t-btn dpad-left" data-key="KeyA">A</button>
+                        <button class="t-btn dpad-right" data-key="KeyD">D</button>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="t-btn btn-punch" data-key="KeyJ">J</button>
+                        <button class="t-btn btn-kick" data-key="KeyL">L</button>
+                        <button class="t-btn btn-block" data-key="KeyK">K</button>
+                        <button class="t-btn btn-ult" data-key="KeyS">S</button>
+                    </div>
+                </div>
+
+                <!-- ДЖОЙСТИК P2 (СПРАВА ВНИЗУ) -->
+                <div class="p2-controller">
+                    <div class="action-buttons">
+                        <button class="t-btn btn-punch" data-key="KeyU">U</button>
+                        <button class="t-btn btn-kick" data-key="KeyO">O</button>
+                        <button class="t-btn btn-block" data-key="KeyI">I</button>
+                        <button class="t-btn btn-ult" data-key="ArrowDown">↓</button>
+                    </div>
+                    <div class="dpad">
+                        <button class="t-btn dpad-up" data-key="ArrowUp">▲</button>
+                        <button class="t-btn dpad-left" data-key="ArrowLeft">◄</button>
+                        <button class="t-btn dpad-right" data-key="ArrowRight">►</button>
+                    </div>
+                </div>
+            </div>
 
             <div id="game-over-screen" class="modal hidden">
                 <h1 id="winner-text">ИГРОК 1<br>ПОБЕДИЛ!</h1>
