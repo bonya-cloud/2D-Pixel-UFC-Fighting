@@ -27,6 +27,12 @@
                     <span>Скорость боя:</span>
                     <button id="speed-toggle-btn" class="toggle-btn">1x (Норм)</button>
                 </div>
+
+                <!-- формат матча: один раунд или до 2 побед из 3 -->
+                <div class="setting-item">
+                    <span>Раунды:</span>
+                    <button id="rounds-toggle-btn" class="toggle-btn">1 раунд</button>
+                </div>
             </div>
 
             <button id="close-settings-btn" class="close-btn">Сохранить и закрыть</button>
@@ -40,7 +46,11 @@
                     <div class="hp-bar-bg"><div id="p1-hp" class="hp-bar-fill" style="width: 100%;"></div></div>
                 </div>
             </div>
-            <div class="timer" id="timer">99</div>
+            <div class="timer-col">
+                <div class="timer" id="timer">99</div>
+                <!-- сюда скриптом подставляется "РАУНД 2/3 • СЧЁТ 1:0", если выбран режим с несколькими раундами -->
+                <div class="round-indicator" id="round-indicator"></div>
+            </div>
             <div class="fighter-card p2">
                 <div class="portrait p2-portrait"></div>
                 <div class="info-col">
@@ -55,8 +65,9 @@
 
             <div id="game-over-screen" class="modal hidden">
                 <h1 id="winner-text">ИГРОК 1<br>ПОБЕДИЛ!</h1>
-                <p>Нажми Пробел или кнопку ниже для рестарта</p>
-                <button onclick="resetGame()">Заново</button>
+                <p>Нажми Пробел или кнопку ниже, чтобы продолжить</p>
+                <!-- текст кнопки и её действие (следующий раунд / полный рестарт матча) задаются в script.js -->
+                <button id="continue-btn">Заново</button>
             </div>
         </div>
     </div>

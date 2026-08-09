@@ -21,12 +21,23 @@ const worldH = 400;
 let soundEnabled = true;
 let gameSpeed = 1; // 1 = нормальная, 1.3 = быстрая
 
+// ---------- Настройки формата матча (раунды) ----------
+let totalRounds = 1;      // 1 = один раунд (как было раньше), 3 = матч до 2 побед из 3 раундов
+let roundsToWin = 1;      // сколько раундов нужно выиграть, чтобы победить в матче
+let currentRoundNum = 1;  // номер текущего раунда
+let p1RoundWins = 0;      // сколько раундов выиграл игрок 1
+let p2RoundWins = 0;      // сколько раундов выиграл игрок 2
+let matchOver = false;    // true, когда весь матч завершён (а не просто раунд)
+
 // Находим HTML элементы
 const settingsBtn = document.getElementById('settings-btn');
 const settingsScreen = document.getElementById('settings-screen');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
 const soundToggleBtn = document.getElementById('sound-toggle-btn');
 const speedToggleBtn = document.getElementById('speed-toggle-btn');
+const roundsToggleBtn = document.getElementById('rounds-toggle-btn');
+const roundIndicatorEl = document.getElementById('round-indicator');
+const continueBtn = document.getElementById('continue-btn');
 
 let timeLeft = 99;
 let timerInterval = null;
@@ -51,13 +62,58 @@ window.addEventListener('keydown', (e) => {
     }
 
     if (isGameOver && e.code === 'Space') {
-        resetGame();
+        handleContinue();
     }
 });
 
 window.addEventListener('keyup', (e) => {
     keys[e.code] = false;
 });
+
+// ---------- звук: простые синтезированные эффекты (без аудиофайлов) ----------
+// Идея: вместо .mp3 файлов генерируем короткий "бип" через осциллятор Web Audio.
+// Это легко и не требует загрузки аудио. Если захочешь свои звуки — замени
+// содержимое playSound() на new Audio('путь/к/файлу.mp3').play().
+let audioCtx = null;
+
+function getAudioCtx() {
+    // Браузеры разрешают создавать AudioContext только после действия пользователя
+    // (клик/нажатие клавиши), поэтому создаём его один раз при первом вызове.
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+
+function playSound(type) {
+    if (!soundEnabled) return; // настройка "Звуковые эффекты: ВЫКЛ" отключает всё это
+
+    const ctxA = getAudioCtx();
+    const osc = ctxA.createOscillator();
+    const gain = ctxA.createGain();
+    osc.connect(gain);
+    gain.connect(ctxA.destination);
+
+    const now = ctxA.currentTime;
+    // Параметры звука для каждого типа события: с какой частоты на какую "падаем",
+    // как долго звучит, форма волны и громкость.
+    let freqStart, freqEnd, duration, waveType, volume;
+    switch (type) {
+        case 'punch': freqStart = 220; freqEnd = 110; duration = 0.08; waveType = 'square';   volume = 0.18; break;
+        case 'kick':  freqStart = 140; freqEnd = 60;  duration = 0.14; waveType = 'square';   volume = 0.22; break;
+        case 'block': freqStart = 600; freqEnd = 500; duration = 0.05; waveType = 'triangle'; volume = 0.12; break;
+        case 'ko':    freqStart = 440; freqEnd = 80;  duration = 0.6;  waveType = 'sawtooth'; volume = 0.20; break;
+        default:      freqStart = 300; freqEnd = 300; duration = 0.05; waveType = 'sine';     volume = 0.10;
+    }
+
+    osc.type = waveType;
+    osc.frequency.setValueAtTime(freqStart, now);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), now + duration);
+
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.start(now);
+    osc.stop(now + duration);
+}
 
 // ---------- juice: screen shake + hit sparks ----------
 let shake = { time: 0, magnitude: 0 };
@@ -100,6 +156,38 @@ function updateAndDrawSparks() {
     ctx.restore();
 }
 
+// ---------- juice: всплывающий текст комбо ("3 HITS!") ----------
+let floatingTexts = [];
+
+function spawnComboText(x, y, combo) {
+    floatingTexts.push({
+        x, y,
+        vy: -1.2,       // текст медленно всплывает вверх
+        life: 45,
+        maxLife: 45,
+        text: `${combo} HITS!`
+    });
+}
+
+function updateAndDrawFloatingTexts() {
+    ctx.save();
+    ctx.font = '900 16px sans-serif';
+    ctx.textAlign = 'center';
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const f = floatingTexts[i];
+        f.y += f.vy;
+        f.life--;
+        if (f.life <= 0) { floatingTexts.splice(i, 1); continue; }
+        ctx.globalAlpha = Math.max(f.life / f.maxLife, 0);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000';
+        ctx.strokeText(f.text, f.x, f.y);
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillText(f.text, f.x, f.y);
+    }
+    ctx.restore();
+}
+
 // ---------- Fighter ----------
 class Fighter {
     constructor({ x, y, color, skinAccent, isFacingRight, controls, name }) {
@@ -126,6 +214,10 @@ class Fighter {
 
         this.hitFlash = 0;
         this.walkCycle = 0;
+
+        // Комбо: сколько ударов подряд боец нанёс без промаха/блока противника
+        this.comboCount = 0;
+        this.lastHitFrame = -999; // на каком кадре был последний удачный удар
     }
 
     draw() {
@@ -360,10 +452,21 @@ function checkHit(attacker, defender, defenderHpEl) {
             if (defender.isBlocking) {
                 addSparks(hitX, hitY, '#cfd8e3', 6);
                 triggerShake(2, 6);
+                playSound('block');
+                attacker.comboCount = 0; // заблокированный удар сбрасывает комбо атакующего
             } else {
                 defender.hitFlash = 6;
                 addSparks(hitX, hitY, isKick ? '#ff8a3d' : '#ffcc00', isKick ? 16 : 12);
                 triggerShake(isKick ? 9 : 6, isKick ? 14 : 10);
+                playSound(isKick ? 'kick' : 'punch');
+
+                // Комбо: если предыдущий удачный удар этого бойца был недавно (менее 1.5 сек / 90 кадров назад),
+                // считаем его продолжением серии, иначе начинаем счёт заново.
+                attacker.comboCount = (frame - attacker.lastHitFrame < 90) ? attacker.comboCount + 1 : 1;
+                attacker.lastHitFrame = frame;
+                if (attacker.comboCount >= 2) {
+                    spawnComboText(hitX, hitY - 20, attacker.comboCount);
+                }
             }
 
             const pushDir = attacker.isFacingRight ? 1 : -1;
@@ -371,7 +474,7 @@ function checkHit(attacker, defender, defenderHpEl) {
 
             if (defender.hp <= 0) {
                 flash = 1;
-                endGame(attacker === p1 ? 'ИГРОК 1<br>ПОБЕДИЛ (K.O.)!' : 'ИГРОК 2<br>ПОБЕДИЛ (K.O.)!');
+                endRound(attacker === p1 ? 'p1' : 'p2', true); // true = победа нокаутом
             }
         }
     }
@@ -397,6 +500,34 @@ const crowd = Array.from({ length: 18 }, (_, i) => ({
     bob: Math.random() * Math.PI * 2,
     h: 10 + Math.random() * 6
 }));
+
+// Амбиентные угольки/искры, которые медленно поднимаются вверх по всей арене —
+// чисто атмосферный эффект, не связан с ударами (в отличие от addSparks()).
+const embers = Array.from({ length: 25 }, () => ({
+    x: Math.random() * worldW,
+    y: floorY + Math.random() * 80,
+    speed: 0.3 + Math.random() * 0.6,   // скорость подъёма
+    drift: (Math.random() - 0.5) * 0.3, // лёгкое смещение по горизонтали
+    size: 1 + Math.random() * 2,
+    phase: Math.random() * Math.PI * 2  // для мерцания
+}));
+
+function updateAndDrawEmbers(t) {
+    ctx.save();
+    embers.forEach(e => {
+        e.y -= e.speed;
+        e.x += e.drift;
+        // когда уголёк улетает слишком высоко — "рождаем" его заново снизу арены
+        if (e.y < floorY - 260) {
+            e.y = floorY + 60;
+            e.x = Math.random() * worldW;
+        }
+        const flicker = 0.4 + 0.6 * Math.abs(Math.sin(t * 3 + e.phase));
+        ctx.fillStyle = `rgba(255,140,60,${flicker})`;
+        ctx.fillRect(e.x, e.y, e.size, e.size);
+    });
+    ctx.restore();
+}
 
 function drawArena() {
     const t = frame / 60;
@@ -587,6 +718,20 @@ function drawArena() {
     ctx.ellipse(arenaLeft + 20, floorY + 74, 10, 5, 0, 0, Math.PI * 2);
     ctx.ellipse(arenaRight - 20, floorY + 74, 10, 5, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Летающие угольки поверх всей сцены — добавляют "живости" фону
+    updateAndDrawEmbers(t);
+
+    // Виньетка: затемнение по краям экрана, чтобы взгляд тянуло к центру арены,
+    // где происходит бой. Классический приём для "кинематографичной" картинки.
+    const vignette = ctx.createRadialGradient(
+        worldW / 2, worldH / 2, worldH * 0.25,
+        worldW / 2, worldH / 2, worldW * 0.65
+    );
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, worldW, worldH);
 }
 
 function gameLoop() {
@@ -609,6 +754,7 @@ function gameLoop() {
         checkHit(p1, p2, p2HpEl);
         checkHit(p2, p1, p1HpEl);
         updateAndDrawSparks();
+        updateAndDrawFloatingTexts();
     } else {
         p1.draw();
         p2.draw();
@@ -638,23 +784,79 @@ function startTimer() {
             timerEl.textContent = timeLeft;
         } else if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            if (p1.hp > p2.hp) endGame('ИГРОК 1<br>ПОБЕДИЛ ПО ОЧКАМ!');
-            else if (p2.hp > p1.hp) endGame('ИГРОК 2<br>ПОБЕДИЛ ПО ОЧКАМ!');
-            else endGame('НИЧЬЯ!');
+            if (p1.hp > p2.hp) endRound('p1', false);
+            else if (p2.hp > p1.hp) endRound('p2', false);
+            else endRound('draw', false);
         }
     }, 1000);
 }
 
-function endGame(text) {
-    isGameOver = true;
+// Обновляет текст "РАУНД 2/3 • СЧЁТ 1:0" под таймером.
+// В режиме "1 раунд" ничего не показываем — как в исходной версии игры.
+function updateRoundIndicator() {
+    roundIndicatorEl.textContent = totalRounds === 1
+        ? ''
+        : `РАУНД ${currentRoundNum}/${totalRounds} • СЧЁТ ${p1RoundWins}:${p2RoundWins}`;
+}
+
+// Вызывается при нокауте ИЛИ по истечении времени раунда.
+// winnerKey: 'p1' | 'p2' | 'draw'.  isKO: true, если раунд закончился нокаутом.
+function endRound(winnerKey, isKO) {
+    isGameOver = true; // это ставит игру на паузу и показывает оверлей (см. Fighter.update)
     clearInterval(timerInterval);
+    playSound('ko');
+
+    if (winnerKey === 'p1') p1RoundWins++;
+    else if (winnerKey === 'p2') p2RoundWins++;
+    // при 'draw' очки никому не начисляются
+
+    updateRoundIndicator();
+
+    const p1WonMatch = p1RoundWins >= roundsToWin;
+    const p2WonMatch = p2RoundWins >= roundsToWin;
+    const noRoundsLeft = currentRoundNum >= totalRounds; // раунды закончились, а до победы никто не дошёл
+
+    matchOver = p1WonMatch || p2WonMatch || noRoundsLeft;
+
+    let text;
+    if (!matchOver) {
+        // Раунд окончен, но матч продолжается — показываем результат раунда и кнопку "Следующий раунд"
+        const roundWinnerLabel = winnerKey === 'p1' ? 'ИГРОК 1' : winnerKey === 'p2' ? 'ИГРОК 2' : null;
+        text = roundWinnerLabel
+            ? `${roundWinnerLabel}<br>ВЫИГРАЛ РАУНД ${currentRoundNum}`
+            : `РАУНД ${currentRoundNum}<br>НИЧЬЯ`;
+        continueBtn.textContent = 'Следующий раунд';
+    } else {
+        // Матч полностью завершён — итог определяем по числу выигранных раундов
+        if (p1RoundWins > p2RoundWins) {
+            text = isKO && totalRounds === 1 ? 'ИГРОК 1<br>ПОБЕДИЛ (K.O.)!' : 'ИГРОК 1<br>ПОБЕДИЛ В МАТЧЕ!';
+        } else if (p2RoundWins > p1RoundWins) {
+            text = isKO && totalRounds === 1 ? 'ИГРОК 2<br>ПОБЕДИЛ (K.O.)!' : 'ИГРОК 2<br>ПОБЕДИЛ В МАТЧЕ!';
+        } else {
+            text = 'НИЧЬЯ!';
+        }
+        continueBtn.textContent = 'Заново';
+    }
+
     winnerText.innerHTML = text;
     gameOverScreen.classList.remove('hidden');
 }
 
-function resetGame() {
+// Кнопка на финальном экране и клавиша "Пробел" ведут сюда.
+// В зависимости от того, закончился матч целиком или только раунд, выбираем нужное действие.
+function handleContinue() {
+    if (matchOver) {
+        resetGame(); // весь матч, счёт раундов обнуляется
+    } else {
+        currentRoundNum++;
+        updateRoundIndicator();
+        startNextRound(); // тот же матч, следующий раунд, счёт сохраняется
+    }
+}
+
+// Сбрасывает позиции/HP/таймер для нового раунда, НЕ трогая счёт раундов
+function startNextRound() {
     isGameOver = false;
-    isPaused = false;
     timeLeft = 99;
     timerEl.textContent = timeLeft;
     p1.hp = 100; p2.hp = 100;
@@ -663,13 +865,27 @@ function resetGame() {
     p2HpEl.classList.remove('mid', 'low');
     p1.x = 200; p1.y = 200;
     p2.x = 560; p2.y = 200;
+    p1.comboCount = 0; p2.comboCount = 0;
     sparks = [];
+    floatingTexts = [];
     shake = { time: 0, magnitude: 0 };
     flash = 0;
     gameOverScreen.classList.add('hidden');
-    settingsScreen.classList.add('hidden');
     clearInterval(timerInterval);
     startTimer();
+}
+
+// Полный рестарт матча: обнуляет и счёт раундов, и текущий бой
+function resetGame() {
+    p1RoundWins = 0;
+    p2RoundWins = 0;
+    currentRoundNum = 1;
+    matchOver = false;
+    updateRoundIndicator();
+
+    isPaused = false;
+    settingsScreen.classList.add('hidden');
+    startNextRound();
 }
 
 function drawPauseScreen() {
@@ -718,5 +934,17 @@ speedToggleBtn.addEventListener('click', () => {
     p2.speed = 4 * gameSpeed;
 });
 
+// Кнопка "Заново" / "Следующий раунд" на финальном экране
+continueBtn.addEventListener('click', handleContinue);
+
+// Переключение формата матча: 1 раунд <-> до 2 побед из 3 раундов
+roundsToggleBtn.addEventListener('click', () => {
+    totalRounds = totalRounds === 1 ? 3 : 1;
+    roundsToWin = totalRounds === 1 ? 1 : 2;
+    roundsToggleBtn.textContent = totalRounds === 1 ? '1 раунд' : 'До 2 побед (Bo3)';
+    resetGame(); // смена формата начинает матч заново, чтобы счёт не путался
+});
+
+updateRoundIndicator(); // выставляем начальный (пустой) текст индикатора раундов
 startTimer();
 gameLoop();
